@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+/* Tokens globais usados pelo tema escuro do app. */
+@theme {
+  --color-app: #050505;
+  --color-surface: #0a0a0a;
+  --color-dark: #000000;
+  --color-accent: #ffffff;
+  --color-accent-dim: rgba(255, 255, 255, 0.08);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-light: rgba(255, 255, 255, 0.14);
+  --color-status-green: #4ade80;
+  --color-status-yellow: #facc15;
+  --color-status-blue: #60a5fa;
+  --color-status-red: #f87171;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #737373;
+  --color-text-muted: #525252;
+
+  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+/* Mantem o app inteiro em dark mode nativo. */
+:root {
+  color-scheme: dark;
+}
+
+/* Base consistente de layout para todos os elementos. */
+* {
+  box-sizing: border-box;
+}
+
+/* Garante que o React tenha altura total para os layouts em tela cheia. */
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+/* Fundo geral e cor padrao do texto. */
+body {
+  margin: 0;
+  background: linear-gradient(180deg, #080808 0%, #000000 100%);
+  color: var(--color-text-primary);
+}
+
+/* Herda a tipografia do body para os controles nativos. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Personaliza destaque de texto selecionado. */
+::selection {
+  background: rgba(255, 255, 255, 0.20);
+}
+
+/* Ajustes de scrollbar para combinar com o visual do app. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.15);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Regioes arrastaveis do Electron. */
+.app-drag {
+  -webkit-app-region: drag;
+}
+
+/* Elementos interativos que nao devem arrastar a janela. */
+.app-no-drag {
+  -webkit-app-region: no-drag;
+}

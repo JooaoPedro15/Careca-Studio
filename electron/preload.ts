@@ -1,0 +1,92 @@
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+
+// API segura exposta para o renderer acessar janelas, dialogs e filas sem habilitar Node direto.
+const api = {
+  window: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    maximize: () => ipcRenderer.invoke('window:maximize'),
+    close: () => ipcRenderer.invoke('window:close'),
+  },
+  dialog: {
+    // Encapsula os dialogs nativos e a recuperacao do path real de um File do browser.
+    openFiles: (filters: { name: string; extensions: string[] }[]) =>
+      ipcRenderer.invoke('dialog:openFiles', filters),
+    openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),
+    getPathForFile: (file: File) => webUtils.getPathForFile(file),
+  },
+  shell: {
+    // Revela arquivos e pastas no explorador do sistema operacional.
+    showItemInFolder: (filePath: string) =>
+      ipcRenderer.invoke('shell:showItemInFolder', filePath),
+    openPath: (filePath: string) => ipcRenderer.invoke('shell:openPath', filePath),
+  },
+  subtitle: {
+    // Namespace dedicado ao workflow de transcricao sequencial.
+    process: (filePath: string, options: Record<string, unknown>) =>
+      ipcRenderer.invoke('subtitle:process', filePath, options),
+    cancel: (taskId: string) => ipcRenderer.invoke('subtitle:cancel', taskId),
+    onProgress: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('subtitle:progress', listener)
+      return () => {
+        ipcRenderer.removeListener('subtitle:progress', listener)
+      }
+    },
+    onDone: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('subtitle:done', listener)
+      return () => {
+        ipcRenderer.removeListener('subtitle:done', listener)
+      }
+    },
+    onError: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('subtitle:error', listener)
+      return () => {
+        ipcRenderer.removeListener('subtitle:error', listener)
+      }
+    },
+  },
+  clipSplitter: {
+    // Namespace dedicado ao workflow de corte e feedback de clipes.
+    process: (sourcePath: string, options: Record<string, unknown>) =>
+      ipcRenderer.invoke('clipSplitter:process', sourcePath, options),
+    cancel: (taskId: string) => ipcRenderer.invoke('clipSplitter:cancel', taskId),
+    saveFeedback: (clip: Record<string, unknown>, label: string | null) =>
+      ipcRenderer.invoke('clipSplitter:saveFeedback', clip, label),
+    onProgress: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('clipSplitter:progress', listener)
+      return () => {
+        ipcRenderer.removeListener('clipSplitter:progress', listener)
+      }
+    },
+    onDone: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('clipSplitter:done', listener)
+      return () => {
+        ipcRenderer.removeListener('clipSplitter:done', listener)
+      }
+    },
+    onError: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('clipSplitter:error', listener)
+      return () => {
+        ipcRenderer.removeListener('clipSplitter:error', listener)
+      }
+    },
+  },
+  partnerScout: {
+    fetchOfficialYoutubeSignals: () => ipcRenderer.invoke('partnerScout:fetchOfficialYoutubeSignals'),
+  },
+  pptx: {
+    inspect: (filePath: string) => ipcRenderer.invoke('pptx:inspect', filePath),
+    updateText: (filePath: string, updates: Array<Record<string, unknown>>) =>
+      ipcRenderer.invoke('pptx:updateText', filePath, updates),
+  },
+} as const
+
+// Injeta a API no objeto window do renderer.
+contextBridge.exposeInMainWorld('careca', api)
+
+export type CarecaAPI = typeof api

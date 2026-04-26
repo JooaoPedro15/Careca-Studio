@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm -v)",
+      "Bash(echo \"---EXIT: $?\")",
+      "Bash(npm --version)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx vite:*)",
+      "Bash(npm list:*)",
+      "Bash(npx --yes png-to-ico --help)",
+      "Bash(npx --yes sharp-cli --help)",
+      "Bash(npx --yes @resvg/resvg-js-win32-x64-msvc@latest)",
+      "Bash(npm ls:*)",
+      "Bash(node -e \":*)",
+      "Bash(find \"D:/Projetos/careca-studio/src/components\" -type f -name \"*.tsx\" -exec wc -l {} \\\\;)"
+    ]
+  }
+}

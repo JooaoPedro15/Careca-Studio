@@ -1,0 +1,75 @@
+import type {
+  ClipFeedbackLabel,
+  ClipSplitterClip,
+  ClipSplitterDoneEvent,
+  ClipSplitterErrorEvent,
+  ClipSplitterOptions,
+  ClipSplitterProgressEvent,
+} from './clipSplitter'
+import type {
+  SubtitleDoneEvent,
+  SubtitleErrorEvent,
+  SubtitleProgressEvent,
+  SubtitleTaskOptions,
+} from './subtitle'
+import type { PptxDeck, PptxTextUpdate } from './pptx'
+
+declare global {
+  interface Window {
+    // API exposta pelo preload para o renderer conversar com o processo principal.
+    careca: {
+      window: {
+        // Controles da janela frameless do Electron.
+        minimize: () => Promise<void>
+        maximize: () => Promise<void>
+        close: () => Promise<void>
+      }
+      dialog: {
+        // Dialogos nativos usados para selecionar arquivos e diretorios.
+        openFiles: (filters: { name: string; extensions: string[] }[]) => Promise<string[]>
+        openDirectory: () => Promise<string | null>
+        getPathForFile: (file: File) => string
+      }
+      shell: {
+        // Acoes de sistema operacional expostas de forma segura para a UI.
+        showItemInFolder: (filePath: string) => Promise<void>
+        openPath: (filePath: string) => Promise<string>
+      }
+      subtitle: {
+        // Ponte entre o renderer e a fila de transcricao do Electron.
+        process: (filePath: string, options: Partial<SubtitleTaskOptions>) => Promise<string>
+        cancel: (taskId: string) => Promise<boolean>
+        onProgress: (cb: (data: SubtitleProgressEvent) => void) => () => void
+        onDone: (cb: (data: SubtitleDoneEvent) => void) => () => void
+        onError: (cb: (data: SubtitleErrorEvent) => void) => () => void
+      }
+      clipSplitter: {
+        // Ponte entre o renderer e o pipeline de corte/exportacao.
+        process: (sourcePath: string, options: Partial<ClipSplitterOptions>) => Promise<string>
+        cancel: (taskId: string) => Promise<boolean>
+        saveFeedback: (clip: ClipSplitterClip, label: ClipFeedbackLabel | null) => Promise<boolean>
+        onProgress: (cb: (data: ClipSplitterProgressEvent) => void) => () => void
+        onDone: (cb: (data: ClipSplitterDoneEvent) => void) => () => void
+        onError: (cb: (data: ClipSplitterErrorEvent) => void) => () => void
+      }
+      partnerScout: {
+        fetchOfficialYoutubeSignals: () => Promise<
+          Array<{
+            brand: string
+            publishedAt: string
+            title: string
+            url: string
+            evidence: string
+            keywords: string[]
+          }>
+        >
+      }
+      pptx: {
+        inspect: (filePath: string) => Promise<PptxDeck>
+        updateText: (filePath: string, updates: PptxTextUpdate[]) => Promise<PptxDeck>
+      }
+    }
+  }
+}
+
+export {}
