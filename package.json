@@ -9,7 +9,9 @@
     "dev": "vite",
     "build": "tsc && vite build && tsc -p tsconfig.electron.json",
     "electron:dev": "concurrently -k -n vite,tsc,electron \"vite\" \"tsc -p tsconfig.electron.json --watch --preserveWatchOutput\" \"wait-on http://localhost:5173 dist-electron/main.js && electron .\"",
-    "electron:build": "vite build && tsc -p tsconfig.electron.json"
+    "electron:build": "vite build && tsc -p tsconfig.electron.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -25,12 +27,14 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/ui": "^3.2.4",
     "concurrently": "^9.2.1",
     "electron": "^41.1.1",
     "sharp": "^0.34.5",
     "tailwindcss": "^4.2.2",
     "typescript": "^6.0.2",
     "vite": "^8.0.3",
+    "vitest": "^3.2.4",
     "wait-on": "^9.0.4"
   }
 }
