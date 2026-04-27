@@ -13,7 +13,7 @@ import { buildSystemPrompt } from '../../src/modules/partner-scout-v2/agent/syst
 export const GEMINI_MODEL_FALLBACK_CHAIN = [
   'gemini-2.5-flash',
   'gemini-2.0-flash',
-  'gemini-2.5-pro',
+  'gemini-2.5-flash-lite',
 ] as const
 
 // Pricing por 1M tokens (Apr 2026 — confirmar antes de prod).
@@ -180,6 +180,7 @@ export async function runProspection(options: RunOptions): Promise<RunOutcome> {
 
   modelLoop: for (const model of modelChain) {
     usage.modelo_efetivo = model
+    let rateLimitRetried = false
     if (model !== modelChain[0]) {
       emit({ ts: new Date().toISOString(), kind: 'fallback', detail: `⚠ tentando modelo ${model}` })
     }
@@ -201,8 +202,21 @@ export async function runProspection(options: RunOptions): Promise<RunOutcome> {
       const { status, data } = await callGeminiOnce(model, apiKey, body, abortCtl.signal, fetchImpl)
 
       if (status === 429 || status === 503) {
+        // Tenta extrair "Please retry in Xs" da mensagem de erro pra retry inteligente
+        const errMsg = data.error?.message ?? 'rate limit'
+        const retryMatch = errMsg.match(/retry in ([\d.]+)s/i)
+        const retryAfterSec = retryMatch ? Math.min(Number(retryMatch[1]) + 1, 30) : 0
+
+        if (retryAfterSec > 0 && !rateLimitRetried) {
+          rateLimitRetried = true
+          emit({ ts: new Date().toISOString(), kind: 'fallback', detail: `⏳ ${model} retornou ${status}, aguardando ${retryAfterSec}s e tentando de novo` })
+          await new Promise((r) => setTimeout(r, retryAfterSec * 1000))
+          iteration -= 1  // não conta a tentativa que falhou
+          continue
+        }
+
         emit({ ts: new Date().toISOString(), kind: 'fallback', detail: `⚠ ${model} retornou ${status}` })
-        lastError = `${status}: ${data.error?.message ?? 'rate limit'}`
+        lastError = `${status}: ${errMsg}`
         continue modelLoop
       }
       if (status >= 400 || data.error) {

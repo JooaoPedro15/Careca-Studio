@@ -83,6 +83,7 @@ describe('runProspection', () => {
 
     expect(run.status).toBe('done')
     expect(run.usage.modelo_efetivo).toBe('gemini-2.0-flash')
+    // (chain agora é flash → 2.0-flash → flash-lite, fallback pula pra 2.0-flash quando flash retorna 429 sem retryAfter)
     expect(events.some((e) => e.startsWith('fallback:'))).toBe(true)
   })
 
