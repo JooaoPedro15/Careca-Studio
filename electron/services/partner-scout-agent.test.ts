@@ -82,7 +82,7 @@ describe('runProspection', () => {
     })
 
     expect(run.status).toBe('done')
-    expect(run.usage.modelo_efetivo).toBe('gemini-2.5-flash-lite')
+    expect(run.usage.modelo_efetivo).toBe('gemini-2.0-flash')
     expect(events.some((e) => e.startsWith('fallback:'))).toBe(true)
   })
 

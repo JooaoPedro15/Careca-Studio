@@ -12,8 +12,8 @@ import { buildSystemPrompt } from '../../src/modules/partner-scout-v2/agent/syst
 
 export const GEMINI_MODEL_FALLBACK_CHAIN = [
   'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
   'gemini-2.0-flash',
+  'gemini-2.5-pro',
 ] as const
 
 // Pricing por 1M tokens (Apr 2026 — confirmar antes de prod).
@@ -52,6 +52,7 @@ export interface RunOutcome {
 
 const DEFAULT_MAX_TOOL_CALLS = 50
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
+const MAX_NUDGES = 2
 
 interface GeminiContent {
   role: 'user' | 'model'
@@ -175,6 +176,7 @@ export async function runProspection(options: RunOptions): Promise<RunOutcome> {
 
   let finalText: string | null = null
   let lastError: string | null = null
+  let nudgesUsed = 0
 
   modelLoop: for (const model of modelChain) {
     usage.modelo_efetivo = model
@@ -253,7 +255,7 @@ export async function runProspection(options: RunOptions): Promise<RunOutcome> {
         continue
       }
 
-      // sem function calls = resposta final
+      // sem function calls = pode ser resposta final OU modelo se confundiu e respondeu texto
       const textPart = parts.find((p) => p.text)?.text ?? ''
       if (!textPart) {
         lastError = 'resposta sem texto e sem function calls'
@@ -261,9 +263,30 @@ export async function runProspection(options: RunOptions): Promise<RunOutcome> {
         break modelLoop
       }
 
-      finalText = textPart
-      lastError = null
-      break modelLoop
+      // Detecta se o texto contém JSON (cru ou em code fence). Se sim, é resposta final.
+      const looksLikeJson = /```json\b|^\s*\{/m.test(textPart)
+      if (looksLikeJson) {
+        finalText = textPart
+        lastError = null
+        break modelLoop
+      }
+
+      // Modelo respondeu conversacionalmente sem usar tools. Nudge e continua.
+      if (nudgesUsed >= MAX_NUDGES) {
+        lastError = `modelo retornou texto não-JSON após ${MAX_NUDGES} nudges`
+        emit({ ts: new Date().toISOString(), kind: 'error', detail: lastError })
+        finalText = textPart  // salva pra debug, mesmo que parse falhe
+        break modelLoop
+      }
+      nudgesUsed += 1
+      emit({ ts: new Date().toISOString(), kind: 'phase', detail: `🔁 nudge #${nudgesUsed}: modelo não usou tools, pedindo pra começar` })
+      conversation.push({ role: 'model', parts })
+      conversation.push({
+        role: 'user',
+        parts: [{
+          text: 'Você ainda não chamou google_search. NÃO responda em texto agora. COMECE a executar o processo: chame google_search com a primeira query da Fase 1 (descoberta ampla). Só retorne o JSON final dentro de ```json ... ``` quando tiver concluído as 5 fases.',
+        }],
+      })
     }
   }
 
