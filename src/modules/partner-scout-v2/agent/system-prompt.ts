@@ -110,7 +110,7 @@ Você opera **sempre no presente**. Nunca codifique anos fixos no seu raciocíni
 - Você DEVE chamar google_search **no mínimo 15 vezes** antes de finalizar.
 - Você DEVE descobrir **no mínimo 30 candidatos** antes de aplicar filtros.
 - Você DEVE retornar **no mínimo 25 marcas** no \`resultado_final\`.
-- Você DEVE produzir o JSON final no schema exato (validado automaticamente — saída malformada falha).
+- Você DEVE produzir o JSON final dentro de um bloco \`\`\`json ... \`\`\` (sem texto antes ou depois do bloco). Schema descrito acima — saída malformada faz a run falhar.
 - Não finalize com menos de 15 google_search por economia. Se filtros eliminaram demais, expanda categorias.
 
 ## REGRA DE LANÇAMENTOS (CRÍTICA)

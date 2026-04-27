@@ -8,7 +8,6 @@ import type {
   RunUsage,
 } from '../../src/modules/partner-scout-v2/agent/run.js'
 import type { ProspectionResult } from '../../src/modules/partner-scout-v2/agent/schema.js'
-import { GEMINI_PROSPECTION_SCHEMA } from '../../src/modules/partner-scout-v2/agent/gemini-schema.js'
 import { buildSystemPrompt } from '../../src/modules/partner-scout-v2/agent/system-prompt.js'
 
 export const GEMINI_MODEL_FALLBACK_CHAIN = [
@@ -86,16 +85,28 @@ function makeUrl(model: string, apiKey: string): string {
 }
 
 function buildRequestBody(systemPrompt: string, conversation: GeminiContent[]) {
+  // Gemini não permite responseMimeType: 'application/json' + responseSchema JUNTO com tools
+  // (google_search/url_context). São mutuamente exclusivos. Por isso pedimos JSON em texto
+  // livre via prompt e parseamos no parseJsonOutput abaixo.
   return {
     systemInstruction: { parts: [{ text: systemPrompt }] },
     contents: conversation,
     tools: [{ google_search: {} }, { url_context: {} }],
     generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: GEMINI_PROSPECTION_SCHEMA,
       maxOutputTokens: 16384,
       temperature: 0.4,
     },
+  }
+}
+
+// Extrai JSON do texto: aceita JSON puro OU dentro de ```json ... ``` (com ou sem newline).
+function parseJsonOutput(text: string): { ok: true; value: ProspectionResult } | { ok: false; error: string } {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const candidate = (fenced?.[1] ?? text).trim()
+  try {
+    return { ok: true, value: JSON.parse(candidate) as ProspectionResult }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
   }
 }
 
@@ -154,7 +165,12 @@ export async function runProspection(options: RunOptions): Promise<RunOutcome> {
   }
 
   const conversation: GeminiContent[] = [
-    { role: 'user', parts: [{ text: 'Inicie o processo de prospecção conforme o system prompt. Produza o JSON final no schema.' }] },
+    {
+      role: 'user',
+      parts: [{
+        text: 'Inicie o processo de prospecção conforme o system prompt. Quando finalizar, retorne SOMENTE o JSON final dentro de um bloco ```json ... ```, sem texto antes ou depois. O JSON deve seguir exatamente o schema descrito no system prompt.',
+      }],
+    },
   ]
 
   let finalText: string | null = null
@@ -255,10 +271,11 @@ export async function runProspection(options: RunOptions): Promise<RunOutcome> {
 
   let result: ProspectionResult | null = null
   if (finalText) {
-    try {
-      result = JSON.parse(finalText) as ProspectionResult
-    } catch (e) {
-      lastError = `JSON parse failed: ${(e as Error).message}`
+    const parsed = parseJsonOutput(finalText)
+    if (parsed.ok) {
+      result = parsed.value
+    } else {
+      lastError = `JSON parse failed: ${parsed.error}`
       emit({ ts: new Date().toISOString(), kind: 'error', detail: lastError })
     }
   }
