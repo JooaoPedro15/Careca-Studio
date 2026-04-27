@@ -3,12 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "description": "Ferramenta desktop interna para automatizar e centralizar o workflow de produção de conteúdo do canal Roberto Careca.",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/electron/main.js",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && tsc -p tsconfig.electron.json",
-    "electron:dev": "concurrently -k -n vite,tsc,electron \"vite\" \"tsc -p tsconfig.electron.json --watch --preserveWatchOutput\" \"wait-on http://localhost:5173 dist-electron/main.js && electron .\"",
+    "electron:dev": "concurrently -k -n vite,tsc,electron \"vite\" \"tsc -p tsconfig.electron.json --watch --preserveWatchOutput\" \"wait-on http://localhost:5173 dist-electron/electron/main.js && electron .\"",
     "electron:build": "vite build && tsc -p tsconfig.electron.json",
     "test": "vitest run",
     "test:watch": "vitest"

@@ -36,7 +36,7 @@ export function parseDotEnvForGeminiKey(filePath: string): string {
       const line = rawLine.trim()
       if (!line || line.startsWith('#') || !line.includes('=')) continue
       const [key, ...valueParts] = line.split('=')
-      if (key.trim() === 'GEMINI_API_KEY') {
+      if (key && key.trim() === 'GEMINI_API_KEY') {
         return normalizeApiKey(valueParts.join('='))
       }
     }

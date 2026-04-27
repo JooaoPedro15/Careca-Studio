@@ -24,7 +24,7 @@ function createWindow(): void {
     minHeight: 600,
     frame: false,
     titleBarStyle: 'hidden',
-    icon: path.join(__dirname, '..', 'resources', 'icon.ico'),
+    icon: path.join(__dirname, '..', '..', 'resources', 'icon.ico'),
     backgroundColor: '#050505',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -40,7 +40,7 @@ function createWindow(): void {
     mainWindow.webContents.openDevTools()
   } else {
     // Em producao carrega o build estatico do frontend.
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'))
   }
 
   // Repassa logs do renderer para facilitar debug no terminal principal.

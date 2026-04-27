@@ -9,8 +9,9 @@
     "skipLibCheck": true,
     "ignoreDeprecations": "6.0",
     "outDir": "dist-electron",
-    "rootDir": "electron",
+    "rootDir": ".",
     "resolveJsonModule": true
   },
-  "include": ["electron"]
+  "include": ["electron", "src/modules/partner-scout-v2"],
+  "exclude": ["**/*.test.ts"]
 }
