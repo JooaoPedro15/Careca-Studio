@@ -13,5 +13,5 @@
     "resolveJsonModule": true
   },
   "include": ["electron", "src/modules/partner-scout-v2"],
-  "exclude": ["**/*.test.ts"]
+  "exclude": ["**/*.test.ts", "src/modules/partner-scout-v2/**/*.tsx", "src/modules/partner-scout-v2/components", "src/modules/partner-scout-v2/index.tsx"]
 }

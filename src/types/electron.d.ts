@@ -13,6 +13,9 @@ import type {
   SubtitleTaskOptions,
 } from './subtitle'
 import type { PptxDeck, PptxTextUpdate } from './pptx'
+import type { BrandCacheEntry, BrandStatus } from '../modules/partner-scout-v2/data/brand-cache.types'
+import type { ContatoMarca } from '../modules/partner-scout-v2/agent/schema'
+import type { ProspectionRun, RunProgressEvent } from '../modules/partner-scout-v2/agent/run'
 
 declare global {
   interface Window {
@@ -53,6 +56,22 @@ declare global {
         onError: (cb: (data: ClipSplitterErrorEvent) => void) => () => void
       }
       partnerScout: {
+        // V2 (LLM agent)
+        run: () => Promise<{ runId: string }>
+        abort: () => Promise<{ ok: boolean }>
+        onProgress: (cb: (e: RunProgressEvent) => void) => () => void
+        onDone: (cb: (run: ProspectionRun) => void) => () => void
+        onError: (cb: (p: { runId: string; error: string }) => void) => () => void
+        listRuns: () => Promise<ProspectionRun[]>
+        getRun: (id: string) => Promise<ProspectionRun | null>
+        deleteRun: (id: string) => Promise<{ ok: boolean }>
+        listCache: () => Promise<BrandCacheEntry[]>
+        setBrandStatus: (n: string, s: BrandStatus, nota?: string) => Promise<BrandCacheEntry>
+        updateBrandContact: (n: string, patch: Partial<ContatoMarca>) => Promise<BrandCacheEntry>
+        addBrandNote: (n: string, text: string) => Promise<BrandCacheEntry>
+        getApiKeyStatus: () => Promise<{ configured: boolean; source: string; masked?: string }>
+        getCreatorProfile: () => Promise<unknown>
+        // legacy v1 (a remover na Task 10):
         fetchOfficialYoutubeSignals: () => Promise<
           Array<{
             brand: string

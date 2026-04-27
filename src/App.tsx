@@ -5,6 +5,10 @@ import { Topbar } from '@/components/Topbar'
 import { useClipSplitter } from '@/hooks/useClipSplitter'
 import { MediaKitModule } from '@/modules/media-kit'
 import { PartnerScoutModule } from '@/modules/partner-scout'
+import { PartnerScoutModuleV2 } from '@/modules/partner-scout-v2'
+
+// TEMPORÁRIO — remover na Task 10 (swap atômico v1→v2)
+const SHOW_V2 = true
 import { useSubtitleForge } from '@/hooks/useSubtitleForge'
 import { ClipSplitterPage } from '@/pages/ClipSplitter'
 import { SubtitleForgePage } from '@/pages/SubtitleForge'
@@ -56,7 +60,7 @@ export default function App() {
     }
 
     if (activeTool === 'partner-scout') {
-      return <PartnerScoutModule />
+      return SHOW_V2 ? <PartnerScoutModuleV2 /> : <PartnerScoutModule />
     }
 
     return (
