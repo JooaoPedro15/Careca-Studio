@@ -202,16 +202,17 @@ export async function runProspection(options: RunOptions): Promise<RunOutcome> {
       const { status, data } = await callGeminiOnce(model, apiKey, body, abortCtl.signal, fetchImpl)
 
       if (status === 429 || status === 503) {
-        // Tenta extrair "Please retry in Xs" da mensagem de erro pra retry inteligente
-        const errMsg = data.error?.message ?? 'rate limit'
+        const errMsg = data.error?.message ?? `HTTP ${status}`
+        // 429: parseia "Please retry in Xs". 503: usa default 5s (Google não manda hint).
         const retryMatch = errMsg.match(/retry in ([\d.]+)s/i)
-        const retryAfterSec = retryMatch ? Math.min(Number(retryMatch[1]) + 1, 30) : 0
+        const defaultWait = status === 503 ? 5 : 0
+        const retryAfterSec = retryMatch ? Math.min(Number(retryMatch[1]) + 1, 30) : defaultWait
 
         if (retryAfterSec > 0 && !rateLimitRetried) {
           rateLimitRetried = true
           emit({ ts: new Date().toISOString(), kind: 'fallback', detail: `⏳ ${model} retornou ${status}, aguardando ${retryAfterSec}s e tentando de novo` })
           await new Promise((r) => setTimeout(r, retryAfterSec * 1000))
-          iteration -= 1  // não conta a tentativa que falhou
+          iteration -= 1
           continue
         }
 
