@@ -103,9 +103,19 @@ const api = {
         ipcRenderer.removeListener('partnerScout:error', handler)
       }
     },
+    onAiStatus: (cb: (data: unknown) => void) => {
+      const handler = (_e: unknown, p: unknown) => cb(p)
+      ipcRenderer.on('partnerScout:aiStatus', handler)
+      return () => {
+        ipcRenderer.removeListener('partnerScout:aiStatus', handler)
+      }
+    },
     listRuns: () => ipcRenderer.invoke('partnerScout:listRuns'),
     getRun: (id: string) => ipcRenderer.invoke('partnerScout:getRun', id),
     deleteRun: (id: string) => ipcRenderer.invoke('partnerScout:deleteRun', id),
+    searchPartners: (filters: Record<string, unknown>) => ipcRenderer.invoke('partnerScout:searchPartners', filters),
+    addPartner: (brandData: Record<string, unknown>) => ipcRenderer.invoke('partnerScout:addPartner', brandData),
+    enrichPartner: (brandId: string) => ipcRenderer.invoke('partnerScout:enrichPartner', brandId),
     listCache: () => ipcRenderer.invoke('partnerScout:listCache'),
     setBrandStatus: (nomeNormalizado: string, status: string, nota?: string) =>
       ipcRenderer.invoke('partnerScout:setBrandStatus', { nomeNormalizado, status, nota }),
@@ -114,6 +124,7 @@ const api = {
     addBrandNote: (nomeNormalizado: string, text: string) =>
       ipcRenderer.invoke('partnerScout:addBrandNote', { nomeNormalizado, text }),
     getApiKeyStatus: () => ipcRenderer.invoke('partnerScout:getApiKeyStatus'),
+    getAiStatus: () => ipcRenderer.invoke('partnerScout:getAiStatus'),
     getCreatorProfile: () => ipcRenderer.invoke('partnerScout:getCreatorProfile'),
     openMarkdownFolder: () => ipcRenderer.invoke('partnerScout:openMarkdownFolder'),
     openMarkdownFile: (path: string) => ipcRenderer.invoke('partnerScout:openMarkdownFile', path),

@@ -3,18 +3,11 @@ import { resolveGeminiApiKey } from '../electron/services/gemini-key-resolver.js
 import { ROBERTO_CARECA_PROFILE } from '../src/modules/partner-scout-v2/data/creator-profile.js'
 
 const { key, source } = resolveGeminiApiKey()
-if (!key) {
-  console.error('❌ Gemini API key não encontrada em nenhuma das 3 fontes')
-  process.exit(1)
-}
-console.log(`✓ Chave Gemini de fonte: ${source}`)
-console.log('Iniciando run real de prospecção (pode demorar 5-10min)...\n')
+console.log(key ? `Chave Gemini de fonte: ${source} (usada apenas em enriquecimento)` : 'Sem Gemini API key; busca local continua normalmente')
+console.log('Iniciando run local de prospeccao...\n')
 
 const { run, result } = await runProspection({
-  apiKey: key,
   creator: ROBERTO_CARECA_PROFILE,
-  cacheHints: [],
-  maxToolCalls: 80,
   minimumBrands: 25,
   onProgress: (e) => console.log(`[${e.kind}] ${e.detail}`),
 })

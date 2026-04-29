@@ -5,11 +5,23 @@ import { join } from 'node:path'
 import { resolveGeminiApiKey } from '../services/gemini-key-resolver.js'
 import { createBrandCache } from '../services/brand-cache.js'
 import { createRunHistory } from '../services/run-history.js'
-import { runProspection, GEMINI_MODEL_FALLBACK_CHAIN } from '../services/partner-scout-agent.js'
+import {
+  defaultAiStatus,
+  enrichPartner,
+  loadSeedPartners,
+  runProspection,
+  searchPartners,
+} from '../services/partner-scout-agent.js'
+import { createPartnerScoutStore } from '../services/partner-scout-store.js'
 
 import type { BrandStatus } from '../../src/modules/partner-scout-v2/data/brand-cache.types.js'
 import type { ContatoMarca, MarcaProspectada } from '../../src/modules/partner-scout-v2/agent/schema.js'
 import type { EvergreenHint } from '../../src/modules/partner-scout-v2/agent/system-prompt.js'
+import type {
+  PartnerAiStatus,
+  PartnerBrand,
+  PartnerSearchFilters,
+} from '../../src/modules/partner-scout-v2/data/partner-database.types.js'
 import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout-v2/data/creator-profile.js'
 
 // =============================================================================
@@ -157,14 +169,21 @@ async function fetchOfficialYoutubeSignalsForSource(source: BrandYoutubeSource):
 
 const brandCache = createBrandCache({})
 const runHistory = createRunHistory({})
+const partnerStore = createPartnerScoutStore({})
 
 let activeRunController: AbortController | null = null
 let activeRunId: string | null = null
+let currentAiStatus: PartnerAiStatus = defaultAiStatus(resolveGeminiApiKey().key.length > 0)
 
 function broadcast(channel: string, payload: unknown) {
   for (const win of BrowserWindow.getAllWindows()) {
     win.webContents.send(channel, payload)
   }
+}
+
+function updateAiStatus(status: PartnerAiStatus) {
+  currentAiStatus = status
+  broadcast('partnerScout:aiStatus', status)
 }
 
 function partnerScoutDocsDir(): string {
@@ -231,6 +250,17 @@ export function registerPartnerScoutHandlers() {
     }
   })
 
+  ipcMain.handle('partnerScout:getAiStatus', () => {
+    const { key } = resolveGeminiApiKey()
+    if (!key && currentAiStatus.status !== 'offline') {
+      currentAiStatus = defaultAiStatus(false)
+    }
+    if (key && currentAiStatus.status === 'offline' && currentAiStatus.detail.includes('API key')) {
+      currentAiStatus = defaultAiStatus(true)
+    }
+    return currentAiStatus
+  })
+
   ipcMain.handle('partnerScout:getCreatorProfile', () => ROBERTO_CARECA_PROFILE)
 
   ipcMain.handle('partnerScout:run', async () => {
@@ -238,22 +268,12 @@ export function registerPartnerScoutHandlers() {
       throw new Error('RUN_ALREADY_IN_PROGRESS')
     }
 
-    const { key } = resolveGeminiApiKey()
-    if (!key) {
-      throw new Error('GEMINI_API_KEY_MISSING')
-    }
-
-    const cacheHints = brandCache.getActiveSkipList(90)
-    const evergreenAnterior = loadEvergreenAnterior()
     const controller = new AbortController()
     activeRunController = controller
 
     const promise = runProspection({
-      apiKey: key,
       creator: ROBERTO_CARECA_PROFILE,
-      cacheHints,
-      evergreenAnterior,
-      modelChain: GEMINI_MODEL_FALLBACK_CHAIN,
+      partners: partnerStore.listPartners(),
       signal: controller.signal,
       onProgress: (event) => broadcast('partnerScout:progress', event),
     })
@@ -314,6 +334,29 @@ export function registerPartnerScoutHandlers() {
   ipcMain.handle('partnerScout:deleteRun', (_, id: string) => {
     runHistory.delete(id)
     return { ok: true }
+  })
+
+  ipcMain.handle('partnerScout:searchPartners', (_, filters: PartnerSearchFilters = {}) => {
+    return searchPartners(filters, [...loadSeedPartners(), ...partnerStore.listPartners()])
+  })
+
+  ipcMain.handle('partnerScout:addPartner', (_, brandData: PartnerBrand) => {
+    return partnerStore.addPartner(brandData, loadSeedPartners())
+  })
+
+  ipcMain.handle('partnerScout:enrichPartner', async (_, brandId: string) => {
+    const { key } = resolveGeminiApiKey()
+    const outcome = await enrichPartner(brandId, {
+      apiKey: key || undefined,
+      creator: ROBERTO_CARECA_PROFILE,
+      partners: partnerStore.listPartners(),
+      cache: partnerStore,
+      onProgress: (event) => broadcast('partnerScout:progress', event),
+      onAiStatus: updateAiStatus,
+    })
+
+    brandCache.upsertFromRun(outcome.prospect)
+    return outcome
   })
 
   ipcMain.handle('partnerScout:listCache', () => brandCache.list())

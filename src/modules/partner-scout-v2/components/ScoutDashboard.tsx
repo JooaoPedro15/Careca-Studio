@@ -1,6 +1,7 @@
 import type { MarcaProspectada } from '../agent/schema.js'
 import type { ProspectionRun, RunProgressEvent } from '../agent/run.js'
 import type { BrandCacheEntry } from '../data/brand-cache.types.js'
+import type { PartnerAiStatus } from '../data/partner-database.types.js'
 import type { ScoutTab } from '../data/prospection-run.store.js'
 import { LeadCard } from './LeadCard.js'
 
@@ -10,6 +11,7 @@ interface ScoutDashboardProps {
   runs: ProspectionRun[]
   cache: BrandCacheEntry[]
   progressLog: RunProgressEvent[]
+  aiStatus: PartnerAiStatus | null
   tab: ScoutTab
   onTab: (t: ScoutTab) => void
   onRun: () => void
@@ -44,8 +46,13 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
     tab === 'evergreen' ? evergreenBrands :
     []
   const groups = groupByCategoria(cardsToShow)
-  const hasError = progressLog.some((e) => e.kind === 'error' || e.kind === 'fallback')
+  const hasError = progressLog.some((e) => e.kind === 'error')
+  const hasFallback = progressLog.some((e) => e.kind === 'fallback')
   const markdownPath = currentRun?.markdownPath ?? null
+  const aiTone =
+    props.aiStatus?.status === 'available' ? 'bg-emerald-400' :
+    props.aiStatus?.status === 'slow' ? 'bg-yellow-400' :
+    'bg-red-400'
 
   return (
     <div className="space-y-6">
@@ -79,7 +86,14 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <div
+            className="flex items-center gap-2 rounded-md border border-white/10 bg-black/20 px-3 py-1.5 text-xs text-zinc-300"
+            title={props.aiStatus?.detail ?? 'Status da IA de enriquecimento'}
+          >
+            <span className={`h-2 w-2 rounded-full ${aiTone}`} />
+            <span>{props.aiStatus?.label ?? 'IA verificando'}</span>
+          </div>
           <button onClick={props.onOpenSettings} className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-zinc-200 hover:bg-white/5">
             Configurações
           </button>
@@ -89,7 +103,7 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
             </button>
           ) : (
             <button onClick={props.onRun} className="rounded-md bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-500">
-              ▶ Nova varredura
+              Nova varredura local
             </button>
           )}
         </div>
@@ -114,7 +128,7 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
         ))}
       </nav>
 
-      {(status === 'running' || hasError) && progressLog.length > 0 && (
+      {(status === 'running' || hasError || hasFallback) && progressLog.length > 0 && (
         <details
           className="rounded-[10px] border border-white/10 bg-black/30 p-4"
           open={hasError || status === 'error'}
@@ -122,10 +136,11 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
           <summary className="cursor-pointer font-mono text-xs text-zinc-400">
             Log do agente {status === 'running' ? '(ao vivo)' : ''} · {progressLog.length} eventos
             {hasError && <span className="ml-2 text-red-400">· erros detectados</span>}
+            {!hasError && hasFallback && <span className="ml-2 text-yellow-400">· usando fallback esperado</span>}
           </summary>
           <div className="mt-2 max-h-64 overflow-y-auto font-mono text-xs text-zinc-300">
             {progressLog
-              .filter((e) => hasError || status === 'running' ? true : e.kind === 'error' || e.kind === 'fallback')
+              .filter((e) => hasError || hasFallback || status === 'running' ? true : e.kind === 'error' || e.kind === 'fallback')
               .map((e, i) => (
                 <p key={i} className="leading-snug">[{e.kind}] {e.detail}</p>
               ))}

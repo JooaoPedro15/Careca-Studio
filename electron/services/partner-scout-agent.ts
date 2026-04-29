@@ -1,66 +1,71 @@
 import { randomUUID } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 import type { CreatorProfile } from '../../src/modules/partner-scout-v2/data/creator-profile.js'
-import type { BrandCacheEntry } from '../../src/modules/partner-scout-v2/data/brand-cache.types.js'
+import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout-v2/data/creator-profile.js'
+import type {
+  PartnerAiStatus,
+  PartnerBrand,
+  PartnerDatabaseFile,
+  PartnerDatabasePorte,
+  PartnerEnrichmentResult,
+  PartnerSearchFilters,
+} from '../../src/modules/partner-scout-v2/data/partner-database.types.js'
+import type {
+  ContatoMarca,
+  FitDemografico,
+  MarcaProspectada,
+  PlanoParceria,
+  Porte,
+  ProspectionResult,
+  TicketEstimadoBRL,
+  TipoPubli,
+} from '../../src/modules/partner-scout-v2/agent/schema.js'
 import type {
   ProspectionRun,
   RunProgressEvent,
   RunUsage,
 } from '../../src/modules/partner-scout-v2/agent/run.js'
-import type { ProspectionResult } from '../../src/modules/partner-scout-v2/agent/schema.js'
-import {
-  buildSystemPrompt,
-  type EvergreenHint,
-} from '../../src/modules/partner-scout-v2/agent/system-prompt.js'
 import { resultToMarkdown } from '../../src/modules/partner-scout-v2/agent/result-to-markdown.js'
+import seedDatabase from '../../src/modules/partner-scout-v2/data/partners.json' with { type: 'json' }
 
-export const GEMINI_MODEL_FALLBACK_CHAIN = [
-  'gemini-2.5-flash',
-  'gemini-2.5-flash-lite',
-  'gemini-2.5-pro',
-] as const
+export const LOCAL_PARTNER_MODEL = 'local-partners-json'
+export const GEMINI_MODEL_FALLBACK_CHAIN = ['gemini-2.5-flash', 'gemini-1.5-flash'] as const
 
-// Pricing por 1M tokens (Apr 2026 — confirmar antes de prod).
-const PRICING: Record<string, { input: number; output: number }> = {
-  'gemini-2.5-flash': { input: 0.30, output: 2.50 },
-  'gemini-2.5-flash-lite': { input: 0.10, output: 0.40 },
-  'gemini-2.0-flash': { input: 0.10, output: 0.40 },
-  'gemini-2.5-pro': { input: 1.25, output: 10.0 },
-}
-const GROUNDING_COST_PER_REQUEST = 35 / 1000  // $35 / 1k requests
-const DEFAULT_MAX_OUTPUT_TOKENS = 65_536
-const MAX_RETRYABLE_HTTP_RETRIES = 2
-const MAX_RETRY_DELAY_SEC = 60
+const DEFAULT_MIN_FIT = 4
+const DEFAULT_TIMEOUT_MS = 8_000
+const DEFAULT_RETRY_DELAY_MS = 3_000
+const ENRICHMENT_CACHE_TTL_DAYS = 30
 const RETRYABLE_HTTP_STATUSES = new Set([429, 500, 503, 504])
 
-const MODEL_CAPABILITIES: Record<string, { maxOutputTokens: number; supportsUrlContext: boolean }> = {
-  'gemini-2.5-flash': { maxOutputTokens: 65_536, supportsUrlContext: true },
-  'gemini-2.5-flash-lite': { maxOutputTokens: 65_536, supportsUrlContext: true },
-  'gemini-2.5-pro': { maxOutputTokens: 65_536, supportsUrlContext: true },
-  // Legacy fallback only when explicitly passed via modelChain.
-  'gemini-2.0-flash': { maxOutputTokens: 8_192, supportsUrlContext: false },
+const PRICING: Record<string, { input: number; output: number }> = {
+  'gemini-2.5-flash': { input: 0.30, output: 2.50 },
+  'gemini-1.5-flash': { input: 0.075, output: 0.30 },
+  [LOCAL_PARTNER_MODEL]: { input: 0, output: 0 },
 }
 
 export function estimateCostUsd(usage: Pick<RunUsage, 'prompt_tokens' | 'candidates_tokens' | 'tool_use_count' | 'modelo_efetivo'>): number {
   const p = PRICING[usage.modelo_efetivo] ?? PRICING['gemini-2.5-flash']!
   const inputCost = (usage.prompt_tokens / 1_000_000) * p.input
   const outputCost = (usage.candidates_tokens / 1_000_000) * p.output
-  const groundingCost = usage.tool_use_count * GROUNDING_COST_PER_REQUEST
-  return Number((inputCost + outputCost + groundingCost).toFixed(4))
+  return Number((inputCost + outputCost).toFixed(4))
 }
 
 export interface RunOptions {
-  apiKey: string
-  creator: CreatorProfile
-  cacheHints: BrandCacheEntry[]
-  evergreenAnterior?: EvergreenHint[]
-  modelChain?: readonly string[]
-  maxToolCalls?: number
+  apiKey?: string
+  creator?: CreatorProfile
+  filters?: PartnerSearchFilters
+  partners?: PartnerBrand[]
   minimumBrands?: number
   timeoutMs?: number
   signal?: AbortSignal
   onProgress?: (event: RunProgressEvent) => void
   fetchImpl?: typeof fetch
+  cacheHints?: unknown[]
+  evergreenAnterior?: unknown[]
+  modelChain?: readonly string[]
+  maxToolCalls?: number
 }
 
 export interface RunOutcome {
@@ -69,471 +74,716 @@ export interface RunOutcome {
   markdown: string | null
 }
 
-const DEFAULT_MAX_TOOL_CALLS = 120
-const DEFAULT_MINIMUM_BRANDS = 40
-const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000
-const MAX_NUDGES = 2
-const MAX_RESULT_EXPANSION_NUDGES = 2
-
-interface GeminiContent {
-  role: 'user' | 'model'
-  parts: GeminiPart[]
+export interface PartnerEnrichmentCacheEntry {
+  brandId: string
+  savedAt: string
+  prospect: MarcaProspectada
 }
 
-interface GeminiPart {
-  text?: string
-  functionCall?: { name: string; args: Record<string, unknown> }
-  functionResponse?: { name: string; response: Record<string, unknown> }
+export interface PartnerEnrichmentCache {
+  get: (brandId: string) => PartnerEnrichmentCacheEntry | null
+  set: (brandId: string, entry: PartnerEnrichmentCacheEntry) => void
 }
 
-interface GeminiCandidate {
-  content?: GeminiContent
-  finishReason?: string
-  groundingMetadata?: { webSearchQueries?: string[] }
+export interface EnrichPartnerOptions {
+  apiKey?: string
+  creator?: CreatorProfile
+  partners?: PartnerBrand[]
+  cache?: PartnerEnrichmentCache
+  timeoutMs?: number
+  retryDelayMs?: number
+  fetchImpl?: typeof fetch
+  clock?: () => Date
+  onProgress?: (event: RunProgressEvent) => void
+  onAiStatus?: (status: PartnerAiStatus) => void
 }
 
 interface GeminiResponse {
-  candidates?: GeminiCandidate[]
+  candidates?: Array<{
+    content?: { parts?: Array<{ text?: string }> }
+    finishReason?: string
+  }>
   usageMetadata?: {
     promptTokenCount?: number
     candidatesTokenCount?: number
-    cachedContentTokenCount?: number
   }
   error?: {
-    code: number
-    message: string
+    code?: number
+    message?: string
     status?: string
-    details?: Array<{ '@type'?: string; retryDelay?: string }>
   }
 }
 
-function makeUrl(model: string, apiKey: string): string {
-  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+interface GeminiCallResult {
+  status: number
+  data: GeminiResponse
+  text: string
 }
 
-function getModelCapabilities(model: string): { maxOutputTokens: number; supportsUrlContext: boolean } {
-  return MODEL_CAPABILITIES[model] ?? {
-    maxOutputTokens: DEFAULT_MAX_OUTPUT_TOKENS,
-    supportsUrlContext: true,
-  }
+type EnrichmentPatch = Partial<Pick<
+  MarcaProspectada,
+  'argumento_pitch' | 'plano_parceria' | 'fit_demografico' | 'ticket_estimado_brl' | 'alertas'
+>>
+
+function nowIso(clock: () => Date): string {
+  return clock().toISOString()
 }
 
-function buildRuntimeSystemPrompt(systemPrompt: string, model: string): string {
-  const capabilities = getModelCapabilities(model)
-  if (capabilities.supportsUrlContext) return systemPrompt
+function aiStatus(status: PartnerAiStatus['status'], detail: string, clock: () => Date): PartnerAiStatus {
+  const label =
+    status === 'available' ? 'IA disponivel' :
+    status === 'slow' ? 'IA lenta' :
+    'IA offline'
 
-  return `${systemPrompt}
-
----
-
-NOTA DO RUNTIME: o modelo ${model} nao disponibiliza url_context nesta chamada. Use apenas google_search para descobrir, validar e chegar a fontes publicas; nao tente chamar url_context.`
-}
-
-function buildRequestBody(systemPrompt: string, conversation: GeminiContent[], model: string) {
-  const capabilities = getModelCapabilities(model)
-  const tools: Array<Record<string, Record<string, never>>> = [{ google_search: {} }]
-  if (capabilities.supportsUrlContext) {
-    tools.push({ url_context: {} })
-  }
-
-  // Gemini não permite responseMimeType: 'application/json' + responseSchema JUNTO com tools
-  // (google_search/url_context). São mutuamente exclusivos. Por isso pedimos JSON em texto
-  // livre via prompt e parseamos no parseJsonOutput abaixo.
   return {
-    systemInstruction: { parts: [{ text: systemPrompt }] },
-    contents: conversation,
-    tools,
-    generationConfig: {
-      maxOutputTokens: Math.min(DEFAULT_MAX_OUTPUT_TOKENS, capabilities.maxOutputTokens),
-      temperature: 0.4,
-    },
+    status,
+    label,
+    detail,
+    updatedAt: nowIso(clock),
   }
 }
 
-// Extrai JSON do texto: aceita JSON puro OU dentro de ```json ... ``` (com ou sem newline).
-function parseJsonOutput(text: string): { ok: true; value: ProspectionResult } | { ok: false; error: string } {
-  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
-  const candidate = (fenced?.[1] ?? text).trim()
-  try {
-    return { ok: true, value: JSON.parse(candidate) as ProspectionResult }
-  } catch (e) {
-    return { ok: false, error: (e as Error).message }
+export function defaultAiStatus(apiKeyConfigured: boolean, clock: () => Date = () => new Date()): PartnerAiStatus {
+  if (!apiKeyConfigured) {
+    return aiStatus('offline', 'Gemini API key nao configurada. O scout usa a base local.', clock)
+  }
+
+  return aiStatus('available', 'Gemini configurado para enriquecimento opcional.', clock)
+}
+
+function emitProgress(
+  onProgress: ((event: RunProgressEvent) => void) | undefined,
+  kind: RunProgressEvent['kind'],
+  detail: string,
+  clock: () => Date = () => new Date(),
+): void {
+  onProgress?.({ ts: nowIso(clock), kind, detail })
+}
+
+function seedPartnersPathCandidates(): string[] {
+  return [
+    join(process.cwd(), 'src', 'modules', 'partner-scout-v2', 'data', 'partners.json'),
+    join(process.cwd(), 'dist-electron', 'src', 'modules', 'partner-scout-v2', 'data', 'partners.json'),
+  ]
+}
+
+let seedPartnersCache: PartnerBrand[] | null = null
+
+export function loadSeedPartners(): PartnerBrand[] {
+  if (seedPartnersCache) return seedPartnersCache
+
+  const imported = seedDatabase as PartnerDatabaseFile
+  if (Array.isArray(imported.brands) && imported.brands.length > 0) {
+    seedPartnersCache = imported.brands
+    return seedPartnersCache
+  }
+
+  for (const path of seedPartnersPathCandidates()) {
+    if (!existsSync(path)) continue
+    const parsed = JSON.parse(readFileSync(path, 'utf-8')) as PartnerDatabaseFile
+    seedPartnersCache = parsed.brands
+    return seedPartnersCache
+  }
+
+  throw new Error('partners.json nao encontrado')
+}
+
+function normalizeText(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+}
+
+function uniqueBrands(seed: PartnerBrand[], extra: PartnerBrand[] = []): PartnerBrand[] {
+  const map = new Map<string, PartnerBrand>()
+  for (const brand of [...seed, ...extra]) {
+    map.set(brand.id, brand)
+  }
+  return [...map.values()]
+}
+
+export function normalizePartnerBrand(brand: PartnerBrand): PartnerBrand {
+  const id = normalizeText(brand.id || brand.nome)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+  if (!id) throw new Error('Partner brand precisa de id ou nome')
+  if (!brand.nome?.trim()) throw new Error('Partner brand precisa de nome')
+  if (!brand.categoria) throw new Error('Partner brand precisa de categoria')
+  if (!brand.site?.trim()) throw new Error('Partner brand precisa de site')
+  if (brand.fit_canal_games < 1 || brand.fit_canal_games > 5) {
+    throw new Error('fit_canal_games deve ficar entre 1 e 5')
+  }
+
+  return {
+    ...brand,
+    id,
+    nome: brand.nome.trim(),
+    sub_categoria: brand.sub_categoria ?? [],
+    tags: brand.tags ?? [],
+    creators_br_referencia: brand.creators_br_referencia ?? [],
+    pagina_parceria: brand.pagina_parceria ?? null,
+    email_parceria: brand.email_parceria ?? null,
+    agencia_representante: brand.agencia_representante ?? null,
   }
 }
 
-function buildExpansionPrompt(currentCount: number, minimumBrands: number, evergreenCount: number): string {
-  return `O JSON parcial trouxe apenas ${currentCount}/${minimumBrands} marcas em resultado_final${evergreenCount < 8 ? ` e ${evergreenCount}/8 em marcas_atemporais` : ''}. Continue a prospecção agora antes de finalizar.
-
-Regras para a próxima resposta:
-- Preserve as marcas boas já encontradas e expanda resultado_final para pelo menos ${minimumBrands} marcas.
-- Garanta pelo menos 8 marcas em marcas_atemporais (energéticos, periféricos, lojas de games, plataformas streaming/anime, publishers AAA evergreen).
-- Rode novas buscas em categorias pouco cobertas: hardware/periféricos, publishers AAA/indie/mobile, telecom, fintech, energia/snacks, apps, áudio/tech consumer, marcas asiáticas entrando no Brasil, rankings de patrocinadores BR.
-- Lembrete: na dúvida INCLUA com alerta. Só elimine quem realmente não opera no BR.
-- Para cada nova marca, preencha plano_parceria completo.
-- Não retorne texto explicativo; só retorne o JSON final completo dentro de \`\`\`json ... \`\`\`.`
+export function addPartner(brandData: PartnerBrand, existingBrands: PartnerBrand[] = []): PartnerBrand {
+  const normalized = normalizePartnerBrand(brandData)
+  const duplicate = existingBrands.some((brand) => brand.id === normalized.id)
+  if (duplicate) throw new Error(`Partner "${normalized.id}" ja existe na base`)
+  return normalized
 }
 
-async function callGeminiOnce(
-  model: string,
-  apiKey: string,
-  body: unknown,
-  signal: AbortSignal | undefined,
-  fetchImpl: typeof fetch,
-): Promise<{ status: number; data: GeminiResponse; retryAfter: string | null }> {
-  const response = await fetchImpl(makeUrl(model, apiKey), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  })
-  const retryAfter = typeof response.headers?.get === 'function' ? response.headers.get('retry-after') : null
-  let data: GeminiResponse = {}
-  try {
-    data = (await response.json()) as GeminiResponse
-  } catch {
-    data = {}
-  }
-  return { status: response.status, data, retryAfter }
-}
+export function searchPartners(filters: PartnerSearchFilters = {}, partners: PartnerBrand[] = loadSeedPartners()): PartnerBrand[] {
+  const onlyBr = filters.onlyBr ?? true
+  const ativaNoBr = filters.ativaNoBr ?? true
+  const minFit = filters.minFit ?? DEFAULT_MIN_FIT
+  const categories = new Set(filters.categorias ?? [])
+  const portes = new Set(filters.porte ?? [])
+  const tags = (filters.tags ?? []).map(normalizeText)
+  const query = filters.query ? normalizeText(filters.query) : null
 
-function parseDelaySeconds(value: string): number | null {
-  const trimmed = value.trim()
-  const secondsMatch = trimmed.match(/^([\d.]+)s?$/i)
-  if (secondsMatch) {
-    const seconds = Number(secondsMatch[1])
-    return Number.isFinite(seconds) ? seconds : null
-  }
-
-  const dateMs = Date.parse(trimmed)
-  if (Number.isNaN(dateMs)) return null
-
-  return Math.max(0, (dateMs - Date.now()) / 1000)
-}
-
-function retryDelayFromError(error: GeminiResponse['error'] | undefined): number | null {
-  for (const detail of error?.details ?? []) {
-    if (typeof detail.retryDelay === 'string') {
-      const parsed = parseDelaySeconds(detail.retryDelay)
-      if (parsed !== null) return parsed
-    }
-  }
-
-  const retryMatch = error?.message.match(/retry in ([\d.]+)s/i)
-  if (!retryMatch) return null
-
-  const seconds = Number(retryMatch[1])
-  return Number.isFinite(seconds) ? seconds : null
-}
-
-function retryDelaySec(status: number, retryAfter: string | null, error: GeminiResponse['error'] | undefined, retryNumber: number): number {
-  const fromHeader = retryAfter ? parseDelaySeconds(retryAfter) : null
-  const fromError = retryDelayFromError(error)
-  const hintedDelay = fromHeader ?? fromError
-  if (hintedDelay !== null) {
-    return Math.min(Math.max(hintedDelay, 0), MAX_RETRY_DELAY_SEC)
-  }
-
-  const baseDelay = status === 429 ? 4 : 5
-  return Math.min(baseDelay * 2 ** (retryNumber - 1), MAX_RETRY_DELAY_SEC)
-}
-
-function formatDelay(seconds: number): string {
-  return Number.isInteger(seconds) ? String(seconds) : seconds.toFixed(1)
-}
-
-function waitForRetry(ms: number, signal: AbortSignal): Promise<void> {
-  if (ms <= 0) return Promise.resolve()
-  if (signal.aborted) return Promise.reject(signal.reason ?? new Error('aborted'))
-
-  return new Promise((resolve, reject) => {
-    let timeout: ReturnType<typeof setTimeout>
-    const done = () => {
-      signal.removeEventListener('abort', aborted)
-      resolve()
-    }
-    const aborted = () => {
-      clearTimeout(timeout)
-      reject(signal.reason ?? new Error('aborted'))
-    }
-    timeout = setTimeout(done, ms)
-    signal.addEventListener('abort', aborted, { once: true })
-  })
-}
-
-async function callGeminiWithRetries(
-  model: string,
-  apiKey: string,
-  body: unknown,
-  signal: AbortSignal,
-  fetchImpl: typeof fetch,
-  emit: (event: RunProgressEvent) => void,
-): Promise<{ status: number; data: GeminiResponse }> {
-  let retryNumber = 0
-
-  for (;;) {
-    const response = await callGeminiOnce(model, apiKey, body, signal, fetchImpl)
-    if (!RETRYABLE_HTTP_STATUSES.has(response.status) || retryNumber >= MAX_RETRYABLE_HTTP_RETRIES) {
-      return response
-    }
-
-    retryNumber += 1
-    const waitSec = retryDelaySec(response.status, response.retryAfter, response.data.error, retryNumber)
-    emit({
-      ts: new Date().toISOString(),
-      kind: 'fallback',
-      detail: `${model} retornou ${response.status}, aguardando ${formatDelay(waitSec)}s e tentando de novo (tentativa ${retryNumber + 1}/${MAX_RETRYABLE_HTTP_RETRIES + 1})`,
+  const result = partners
+    .filter((brand) => categories.size === 0 || categories.has(brand.categoria))
+    .filter((brand) => portes.size === 0 || portes.has(brand.porte))
+    .filter((brand) => !onlyBr || brand.tem_br)
+    .filter((brand) => !ativaNoBr || brand.ativa_no_br)
+    .filter((brand) => brand.fit_canal_games >= minFit)
+    .filter((brand) => {
+      if (tags.length === 0) return true
+      const haystack = [...brand.tags, ...brand.sub_categoria].map(normalizeText)
+      return tags.some((tag) => haystack.some((value) => value.includes(tag)))
     })
-    await waitForRetry(waitSec * 1000, signal)
+    .filter((brand) => {
+      if (!query) return true
+      const haystack = normalizeText([
+        brand.nome,
+        brand.categoria,
+        brand.porte,
+        ...brand.sub_categoria,
+        ...brand.tags,
+      ].join(' '))
+      return haystack.includes(query)
+    })
+    .sort((a, b) => {
+      const fitDiff = b.fit_canal_games - a.fit_canal_games
+      if (fitDiff !== 0) return fitDiff
+      const dateDiff = b.ultima_verificacao.localeCompare(a.ultima_verificacao)
+      if (dateDiff !== 0) return dateDiff
+      return a.nome.localeCompare(b.nome)
+    })
+
+  return typeof filters.limit === 'number' ? result.slice(0, filters.limit) : result
+}
+
+function mapPorte(porte: PartnerDatabasePorte): Porte {
+  if (porte === 'global') return 'global'
+  if (porte === 'nacional') return 'regional_grande'
+  if (porte === 'indie') return 'startup'
+  return 'medio'
+}
+
+function tipoPubliFor(brand: PartnerBrand): TipoPubli {
+  if (brand.categoria === 'loja_jogos' || brand.categoria === 'vpn_software') return 'codigo_desconto'
+  if (brand.categoria === 'pc_setup' && brand.fit_canal_games >= 5) return 'embaixador_long_term'
+  if (brand.categoria === 'energetico_snack' && brand.fit_canal_games >= 5) return 'embaixador_long_term'
+  if (brand.categoria === 'aaa_publisher' || brand.categoria === 'mobile_gaming') return 'short_patrocinado'
+  return 'integracao'
+}
+
+function categoryBaseTicket(category: PartnerBrand['categoria']): number {
+  const base: Record<PartnerBrand['categoria'], number> = {
+    periferico_gamer: 19_500,
+    cadeira_gamer: 13_000,
+    pc_setup: 32_000,
+    energetico_snack: 19_500,
+    loja_jogos: 19_500,
+    vpn_software: 13_000,
+    mobile_gaming: 13_000,
+    aaa_publisher: 19_000,
+    streaming_gaming: 19_500,
+    cripto_p2e: 4_500,
+  }
+
+  return base[category]
+}
+
+function roundTo500(value: number): number {
+  return Math.max(1_500, Math.round(value / 500) * 500)
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function ticketFor(brand: PartnerBrand, creator: CreatorProfile): TicketEstimadoBRL {
+  const base = categoryBaseTicket(brand.categoria)
+  const fitMultiplier = 0.75 + brand.fit_canal_games * 0.08
+  const viewsMultiplier = clamp(creator.views_28d / 7_000_000, 0.85, 1.35)
+  const ideal = roundTo500(base * fitMultiplier * viewsMultiplier)
+
+  return {
+    minimo: roundTo500(ideal * 0.65),
+    ideal,
+    premium: roundTo500(ideal * 1.35),
+    base_calculo: `Base Media Kit games: shorts 100k-350k views, ${creator.inscritos.toLocaleString('pt-BR')} inscritos, ${creator.views_28d.toLocaleString('pt-BR')} views/28d.`,
   }
 }
 
-export async function runProspection(options: RunOptions): Promise<RunOutcome> {
-  const {
-    apiKey,
-    creator,
-    cacheHints,
-    evergreenAnterior,
-    modelChain = GEMINI_MODEL_FALLBACK_CHAIN,
-    maxToolCalls = DEFAULT_MAX_TOOL_CALLS,
-    minimumBrands = DEFAULT_MINIMUM_BRANDS,
-    timeoutMs = DEFAULT_TIMEOUT_MS,
-    signal: externalSignal,
-    onProgress,
-    fetchImpl = fetch,
-  } = options
+function fitFor(brand: PartnerBrand, creator: CreatorProfile): FitDemografico {
+  const score = brand.fit_canal_games * 2
+  const highIntent = creator.publico.intencao_compra_alta.includes('Computers & Peripherals')
+  const reason = highIntent
+    ? 'Publico com alta afinidade por games, computadores e perifericos; formato shorts-first favorece demonstracao rapida.'
+    : 'Publico do canal tem afinidade direta com games e consumo de entretenimento digital.'
 
-  const id = randomUUID()
+  return {
+    score,
+    justificativa: `Fit local ${brand.fit_canal_games}/5. ${reason}`,
+  }
+}
+
+function contactFor(brand: PartnerBrand): ContatoMarca {
+  return {
+    email_primario: brand.email_parceria,
+    email_alternativo: null,
+    fonte_email: brand.email_parceria ? 'base_local_curada' : 'nao_localizado',
+    editavel: true,
+    linkedin_decisor: { nome: null, cargo: null, url: null },
+    agencia_representante: brand.agencia_representante ?? null,
+    formulario_parcerias: brand.pagina_parceria,
+  }
+}
+
+function planoFor(brand: PartnerBrand): PlanoParceria {
+  const bundle =
+    brand.categoria === 'aaa_publisher' ? 'Gaming Launch' :
+    brand.categoria === 'mobile_gaming' ? 'Mobile Game' :
+    brand.categoria === 'energetico_snack' ? 'Energetico ou Snack Gamer' :
+    brand.categoria === 'vpn_software' ? 'Codigo + short educativo' :
+    brand.categoria === 'loja_jogos' ? 'Plataforma Gaming' :
+    'Mensal Games'
+
+  const formats =
+    brand.categoria === 'vpn_software' || brand.categoria === 'loja_jogos'
+      ? ['2 shorts com CTA', '3 stories com link/cupom', '1 short follow-up']
+      : brand.categoria === 'aaa_publisher'
+        ? ['3 shorts em sequencia', '1 live gameplay opcional', '2 stories']
+        : ['4 shorts ao longo do mes', 'produto em cena', '2 stories']
+
+  return {
+    produto_ou_jogo: brand.sub_categoria[0] ?? brand.categoria,
+    gancho_lancamento: 'Campanha evergreen validada pela base local; validar timing especifico antes do envio.',
+    proposta_ativacao: `${bundle}: campanha shorts-first com linguagem nativa do Roberto Careca e CTA direto para produto, catalogo ou cupom.`,
+    formatos_entregaveis: formats,
+    periodo_ideal: 'Abordar no inicio do mes comercial ou 3-4 semanas antes de campanha/lancamento.',
+    ideia_de_video: `Short de gameplay/setup conectando ${brand.nome} a uma situacao real do canal, com hook nos primeiros 2 segundos.`,
+    porque_faz_sentido: `${brand.nome} conversa com o publico gamer BR do canal e com inventario de shorts de alta frequencia.`,
+  }
+}
+
+function pitchFor(brand: PartnerBrand, creator: CreatorProfile): string {
+  return [
+    `Oi, time ${brand.nome}.`,
+    `Sou do Roberto Careca, canal shorts-first de games com ${creator.inscritos.toLocaleString('pt-BR')} inscritos e forte alcance em publico gamer BR.`,
+    `A marca de voces tem fit direto com ${brand.sub_categoria.slice(0, 3).join(', ') || brand.categoria}.`,
+    'Minha sugestao e um pacote de shorts nativos com CTA simples, pensado para testar resposta sem depender de video longo.',
+  ].join('\n\n')
+}
+
+function alertasFor(brand: PartnerBrand): string[] {
+  const alerts: string[] = []
+  if (!brand.email_parceria && !brand.pagina_parceria) {
+    alerts.push('Contato direto nao validado; localizar decisor ou agencia antes do envio.')
+  }
+  if (!brand.email_parceria && brand.pagina_parceria) {
+    alerts.push('Usar formulario de parceria como primeiro caminho; email ainda nao validado.')
+  }
+  if (brand.categoria === 'cripto_p2e') {
+    alerts.push('Validar reputacao, compliance e seguranca antes de qualquer proposta.')
+  }
+  if (!brand.ja_patrocina_creators_br) {
+    alerts.push('Sem prova local recente de creators BR na base; abordar como teste.')
+  }
+  return alerts
+}
+
+export function brandToProspect(brand: PartnerBrand, creator: CreatorProfile = ROBERTO_CARECA_PROFILE): MarcaProspectada {
+  return {
+    marca: brand.nome,
+    categoria: brand.categoria,
+    site: brand.site,
+    operacao_brasil: brand.tem_br && brand.ativa_no_br ? 'confirmada' : brand.tem_br ? 'provavel' : 'nao',
+    ultima_atividade_publica: `Base local verificada em ${brand.ultima_verificacao}`,
+    porte: mapPorte(brand.porte),
+    campanhas_recentes_creator: [],
+    lancamentos_proximos: [],
+    fit_demografico: fitFor(brand, creator),
+    tipo_publi_recomendado: tipoPubliFor(brand),
+    ticket_estimado_brl: ticketFor(brand, creator),
+    plano_parceria: planoFor(brand),
+    contato: contactFor(brand),
+    argumento_pitch: pitchFor(brand, creator),
+    alertas: alertasFor(brand),
+  }
+}
+
+function buildProspectionResult(
+  brands: PartnerBrand[],
+  creator: CreatorProfile,
+  totalCandidates: number,
+): ProspectionResult {
+  const prospects = brands.map((brand) => brandToProspect(brand, creator))
+  const evergreenCategories = new Set<PartnerBrand['categoria']>([
+    'periferico_gamer',
+    'pc_setup',
+    'energetico_snack',
+    'loja_jogos',
+    'vpn_software',
+    'streaming_gaming',
+  ])
+  const evergreen = brands
+    .filter((brand) => evergreenCategories.has(brand.categoria))
+    .slice(0, 12)
+    .map((brand) => brandToProspect(brand, creator))
+  const emailFound = prospects.filter((brand) => brand.contato.email_primario).length
+  const categories = new Set(prospects.map((brand) => brand.categoria))
+
+  return {
+    executado_em: new Date().toISOString(),
+    ano_referencia: new Date().getFullYear(),
+    janela_temporal_busca: 'base local curada',
+    criador: creator.nome,
+    queries_executadas: ['base_local:src/modules/partner-scout-v2/data/partners.json'],
+    candidatos_descobertos: totalCandidates,
+    filtrados: Math.max(0, totalCandidates - prospects.length),
+    resultado_final: prospects,
+    marcas_atemporais: evergreen,
+    top_10_destaque: prospects.slice(0, 10).map((brand) => brand.marca),
+    estatisticas_busca: {
+      emails_encontrados: emailFound,
+      emails_inferidos: 0,
+      emails_nao_localizados: prospects.length - emailFound,
+      categorias_cobertas: categories.size,
+    },
+    proximas_acoes_sugeridas: [
+      'Enriquecer com IA somente as marcas que voce pretende abordar agora.',
+      'Validar contato comercial antes de disparar pitch.',
+      'Adicionar novas marcas via addPartner depois de curadoria manual.',
+    ],
+  }
+}
+
+export async function runProspection(options: RunOptions = {}): Promise<RunOutcome> {
+  const creator = options.creator ?? ROBERTO_CARECA_PROFILE
   const startedAt = new Date().toISOString()
   const progressLog: RunProgressEvent[] = []
-
-  const emit = (event: RunProgressEvent) => {
+  const clock = () => new Date()
+  const emit = (kind: RunProgressEvent['kind'], detail: string) => {
+    const event = { ts: nowIso(clock), kind, detail }
     progressLog.push(event)
-    onProgress?.(event)
+    options.onProgress?.(event)
   }
 
-  const abortCtl = new AbortController()
-  const timeoutHandle = setTimeout(() => abortCtl.abort(new Error('timeout')), timeoutMs)
-  externalSignal?.addEventListener('abort', () => abortCtl.abort(externalSignal.reason))
+  if (options.signal?.aborted) {
+    return {
+      run: {
+        id: randomUUID(),
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        status: 'aborted',
+        error: 'aborted',
+        usage: {
+          prompt_tokens: 0,
+          candidates_tokens: 0,
+          cached_content_tokens: 0,
+          tool_use_count: 0,
+          modelo_efetivo: LOCAL_PARTNER_MODEL,
+          custo_estimado_usd: 0,
+        },
+        result: null,
+        progressLog,
+      },
+      result: null,
+      markdown: null,
+    }
+  }
 
-  const systemPrompt = buildSystemPrompt({ creator, agora: new Date(), cacheHints, evergreenAnterior })
+  const seed = uniqueBrands(loadSeedPartners(), options.partners ?? [])
+  emit('phase', 'Busca local em partners.json iniciada; nenhuma chamada de IA nesta etapa.')
+  const brands = searchPartners(options.filters ?? {}, seed)
+  const result = buildProspectionResult(brands, creator, seed.length)
+  emit('phase', `Busca local concluida com ${brands.length} marcas; usando dados locais como fonte da verdade.`)
 
   const usage: RunUsage = {
     prompt_tokens: 0,
     candidates_tokens: 0,
     cached_content_tokens: 0,
     tool_use_count: 0,
-    modelo_efetivo: modelChain[0]!,
+    modelo_efetivo: LOCAL_PARTNER_MODEL,
     custo_estimado_usd: 0,
   }
 
-  const conversation: GeminiContent[] = [
-    {
-      role: 'user',
-      parts: [{
-        text: 'Inicie o processo de prospecção conforme o system prompt. Quando finalizar, retorne SOMENTE o JSON final dentro de um bloco ```json ... ```, sem texto antes ou depois. O JSON deve seguir exatamente o schema descrito no system prompt.',
-      }],
-    },
-  ]
-
-  let finalText: string | null = null
-  let lastError: string | null = null
-  let nudgesUsed = 0
-  let expansionNudgesUsed = 0
-  let toolLimitNoticeSent = false
-  const modelErrors: string[] = []
-
-  modelLoop: for (const model of modelChain) {
-    usage.modelo_efetivo = model
-    const runtimeSystemPrompt = buildRuntimeSystemPrompt(systemPrompt, model)
-    if (model !== modelChain[0]) {
-      emit({ ts: new Date().toISOString(), kind: 'fallback', detail: `⚠ tentando modelo ${model}` })
-    }
-
-    let iteration = 0
-    while (iteration++ < maxToolCalls + 5) {
-      if (abortCtl.signal.aborted) {
-        lastError = 'aborted'
-        break modelLoop
-      }
-      if (usage.tool_use_count >= maxToolCalls) {
-        if (!toolLimitNoticeSent) {
-          toolLimitNoticeSent = true
-          conversation.push({
-            role: 'user',
-            parts: [{ text: `LIMITE DE ${maxToolCalls} TOOL CALLS ATINGIDO. Finalize agora com o JSON mais completo que você já tem, no schema exato. Se ainda houver menos de ${minimumBrands} marcas, expanda com candidatas verificadas nas buscas já feitas e registre alertas onde houver incerteza.` }],
-          })
-        }
-      }
-
-      const body = buildRequestBody(runtimeSystemPrompt, conversation, model)
-      let response: { status: number; data: GeminiResponse }
-      try {
-        response = await callGeminiWithRetries(model, apiKey, body, abortCtl.signal, fetchImpl, emit)
-      } catch (e) {
-        lastError = abortCtl.signal.aborted ? 'aborted' : ((e as Error).message || 'Gemini request failed')
-        if (lastError !== 'aborted') {
-          emit({ ts: new Date().toISOString(), kind: 'error', detail: lastError })
-        }
-        break modelLoop
-      }
-
-      const { status, data } = response
-
-      if (RETRYABLE_HTTP_STATUSES.has(status)) {
-        const errMsg = data.error?.message ?? `HTTP ${status}`
-        emit({ ts: new Date().toISOString(), kind: 'fallback', detail: `⚠ ${model} retornou ${status}` })
-        lastError = `${status}: ${errMsg}`
-        modelErrors.push(`${model}: ${lastError}`)
-        continue modelLoop
-      }
-      if (status >= 400 || data.error) {
-        lastError = data.error?.message ?? `HTTP ${status}`
-        modelErrors.push(`${model}: ${status}: ${lastError}`)
-        emit({ ts: new Date().toISOString(), kind: 'error', detail: lastError })
-        break modelLoop
-      }
-
-      const meta = data.usageMetadata ?? {}
-      usage.prompt_tokens = meta.promptTokenCount ?? usage.prompt_tokens
-      usage.candidates_tokens = meta.candidatesTokenCount ?? usage.candidates_tokens
-      usage.cached_content_tokens = meta.cachedContentTokenCount ?? usage.cached_content_tokens
-
-      const candidate = data.candidates?.[0]
-      if (!candidate) {
-        lastError = 'no candidate in Gemini response'
-        emit({ ts: new Date().toISOString(), kind: 'error', detail: lastError })
-        break modelLoop
-      }
-
-      const parts = candidate.content?.parts ?? []
-      const functionCalls = parts.filter((p) => p.functionCall)
-
-      // grounding queries (google_search faz por baixo dos panos, sem function call explícita)
-      const groundingQueries = candidate.groundingMetadata?.webSearchQueries ?? []
-      for (const q of groundingQueries) {
-        usage.tool_use_count += 1
-        emit({ ts: new Date().toISOString(), kind: 'tool_use', detail: `🔍 google_search: "${q}"` })
-      }
-
-      if (functionCalls.length > 0) {
-        // url_context retorna como function_call que precisa de function_response do nosso lado
-        conversation.push({ role: 'model', parts })
-        const responseParts: GeminiPart[] = functionCalls.map((p) => {
-          const name = p.functionCall!.name
-          usage.tool_use_count += 1
-          emit({
-            ts: new Date().toISOString(),
-            kind: 'tool_use',
-            detail: `📄 ${name}: ${JSON.stringify(p.functionCall!.args)}`,
-          })
-          return {
-            functionResponse: {
-              name,
-              response: { ack: true },
-            },
-          }
-        })
-        conversation.push({ role: 'user', parts: responseParts })
-        continue
-      }
-
-      // sem function calls = pode ser resposta final OU modelo se confundiu e respondeu texto
-      const textPart = parts.find((p) => p.text)?.text ?? ''
-      const finishReason = candidate.finishReason ?? 'UNSPECIFIED'
-      if (!textPart) {
-        // Casos comuns: MAX_TOKENS (output truncado), SAFETY (bloqueado), parts vazio após grounding
-        const reason = `parts vazio (finishReason=${finishReason})`
-        lastError = reason
-        emit({ ts: new Date().toISOString(), kind: 'fallback', detail: `⚠ ${model}: ${reason} — tentando próximo modelo` })
-        modelErrors.push(`${model}: ${reason}`)
-        continue modelLoop
-      }
-
-      // Detecta se o texto contém JSON (cru ou em code fence). Se sim, é resposta final.
-      const looksLikeJson = /```json\b|^\s*\{/m.test(textPart)
-      if (looksLikeJson) {
-        const parsedPreview = parseJsonOutput(textPart)
-        const currentCount = parsedPreview.ok ? parsedPreview.value.resultado_final?.length ?? 0 : 0
-        const evergreenCount = parsedPreview.ok ? parsedPreview.value.marcas_atemporais?.length ?? 0 : 0
-        const needsMoreTrending = minimumBrands > 0 && currentCount < minimumBrands
-        const needsMoreEvergreen = minimumBrands > 0 && evergreenCount < 8
-        if (
-          parsedPreview.ok &&
-          (needsMoreTrending || needsMoreEvergreen) &&
-          expansionNudgesUsed < MAX_RESULT_EXPANSION_NUDGES
-        ) {
-          expansionNudgesUsed += 1
-          emit({
-            ts: new Date().toISOString(),
-            kind: 'phase',
-            detail: `resultado parcial: ${currentCount}/${minimumBrands} trending + ${evergreenCount}/8 atemporais; expansão #${expansionNudgesUsed}`,
-          })
-          conversation.push({ role: 'model', parts })
-          conversation.push({
-            role: 'user',
-            parts: [{ text: buildExpansionPrompt(currentCount, minimumBrands, evergreenCount) }],
-          })
-          continue
-        }
-
-        finalText = textPart
-        lastError = null
-        break modelLoop
-      }
-
-      // Modelo respondeu conversacionalmente sem usar tools. Nudge e continua.
-      if (nudgesUsed >= MAX_NUDGES) {
-        lastError = `modelo retornou texto não-JSON após ${MAX_NUDGES} nudges`
-        emit({ ts: new Date().toISOString(), kind: 'error', detail: lastError })
-        finalText = textPart  // salva pra debug, mesmo que parse falhe
-        break modelLoop
-      }
-      nudgesUsed += 1
-      emit({ ts: new Date().toISOString(), kind: 'phase', detail: `🔁 nudge #${nudgesUsed}: modelo não usou tools, pedindo pra começar` })
-      conversation.push({ role: 'model', parts })
-      conversation.push({
-        role: 'user',
-        parts: [{
-          text: 'Você ainda não chamou google_search. NÃO responda em texto agora. COMECE a executar o processo: chame google_search com a primeira query da Fase 1 (descoberta ampla). Só retorne o JSON final dentro de ```json ... ``` quando tiver concluído as 5 fases.',
-        }],
-      })
-    }
-  }
-
-  clearTimeout(timeoutHandle)
-
-  if (!finalText && lastError !== 'aborted' && modelErrors.length > 1) {
-    lastError = `Todos os modelos falharam: ${modelErrors.join(' | ')}`
-  }
-
-  let result: ProspectionResult | null = null
-  if (finalText) {
-    const parsed = parseJsonOutput(finalText)
-    if (parsed.ok) {
-      result = parsed.value
-    } else {
-      lastError = `JSON parse failed: ${parsed.error}`
-      emit({ ts: new Date().toISOString(), kind: 'error', detail: lastError })
-    }
-  }
-
-  usage.custo_estimado_usd = estimateCostUsd(usage)
-
-  const finishedAt = new Date().toISOString()
-  const status = lastError === 'aborted' ? 'aborted' : result ? 'done' : 'error'
-
   const run: ProspectionRun = {
-    id,
+    id: randomUUID(),
     startedAt,
-    finishedAt,
-    status,
-    error: lastError,
+    finishedAt: new Date().toISOString(),
+    status: 'done',
+    error: null,
     usage,
     result,
     progressLog,
   }
 
-  const markdown = result ? resultToMarkdown(result) : null
+  return { run, result, markdown: resultToMarkdown(result) }
+}
 
-  return { run, result, markdown }
+function makeGeminiUrl(model: string, apiKey: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+}
+
+function buildEnrichmentBody(brand: PartnerBrand, localProspect: MarcaProspectada, creator: CreatorProfile) {
+  return {
+    systemInstruction: {
+      parts: [{
+        text: [
+          'Voce enriquece uma marca ja existente na base local do Partner Scout.',
+          'Nao descubra novas marcas. Nao use web search. Retorne apenas JSON valido.',
+          'Contexto do canal: Roberto Careca, games, shorts-first, publico BR, 100k-350k views combinadas por publicacao quando vendido com TikTok.',
+          `Metricas locais: ${creator.inscritos} inscritos, ${creator.views_28d} views/28d, retencao ${creator.retencao_media}%.`,
+        ].join('\n'),
+      }],
+    },
+    contents: [{
+      role: 'user',
+      parts: [{
+        text: JSON.stringify({
+          tarefa: 'Enriqueca esta marca com pitch personalizado, hook, fit e ticket. Preserve dados locais quando nao tiver certeza.',
+          brand,
+          localProspect,
+          formato_resposta: {
+            argumento_pitch: 'string',
+            plano_parceria: localProspect.plano_parceria,
+            fit_demografico: localProspect.fit_demografico,
+            ticket_estimado_brl: localProspect.ticket_estimado_brl,
+            alertas: localProspect.alertas,
+          },
+        }),
+      }],
+    }],
+    generationConfig: {
+      temperature: 0.35,
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+    },
+  }
+}
+
+async function callGeminiOnce(
+  model: string,
+  apiKey: string,
+  body: unknown,
+  timeoutMs: number,
+  fetchImpl: typeof fetch,
+): Promise<GeminiCallResult> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(new Error('timeout')), timeoutMs)
+  try {
+    const response = await fetchImpl(makeGeminiUrl(model, apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+    let data: GeminiResponse = {}
+    try {
+      data = (await response.json()) as GeminiResponse
+    } catch {
+      data = {}
+    }
+    const text = data.candidates?.[0]?.content?.parts?.find((part) => part.text)?.text ?? ''
+    return { status: response.status, data, text }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+function parseJsonPatch(text: string): EnrichmentPatch | null {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  const candidate = (fenced?.[1] ?? text).trim()
+  try {
+    return JSON.parse(candidate) as EnrichmentPatch
+  } catch {
+    return null
+  }
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string')
+}
+
+function mergeEnrichment(local: MarcaProspectada, patch: EnrichmentPatch | null): MarcaProspectada {
+  if (!patch) return local
+
+  const next: MarcaProspectada = { ...local }
+  if (typeof patch.argumento_pitch === 'string' && patch.argumento_pitch.trim()) {
+    next.argumento_pitch = patch.argumento_pitch.trim()
+  }
+  if (patch.plano_parceria && typeof patch.plano_parceria === 'object') {
+    next.plano_parceria = { ...local.plano_parceria!, ...patch.plano_parceria }
+  }
+  if (patch.fit_demografico && typeof patch.fit_demografico === 'object') {
+    next.fit_demografico = {
+      score: clamp(Number(patch.fit_demografico.score ?? local.fit_demografico.score), 0, 10),
+      justificativa: typeof patch.fit_demografico.justificativa === 'string'
+        ? patch.fit_demografico.justificativa
+        : local.fit_demografico.justificativa,
+    }
+  }
+  if (patch.ticket_estimado_brl && typeof patch.ticket_estimado_brl === 'object') {
+    next.ticket_estimado_brl = {
+      minimo: Number(patch.ticket_estimado_brl.minimo ?? local.ticket_estimado_brl.minimo),
+      ideal: Number(patch.ticket_estimado_brl.ideal ?? local.ticket_estimado_brl.ideal),
+      premium: Number(patch.ticket_estimado_brl.premium ?? local.ticket_estimado_brl.premium),
+      base_calculo: typeof patch.ticket_estimado_brl.base_calculo === 'string'
+        ? patch.ticket_estimado_brl.base_calculo
+        : local.ticket_estimado_brl.base_calculo,
+    }
+  }
+  if (isStringArray(patch.alertas)) {
+    next.alertas = [...new Set([...local.alertas, ...patch.alertas])]
+  }
+
+  return next
+}
+
+function cacheIsFresh(entry: PartnerEnrichmentCacheEntry, clock: () => Date): boolean {
+  const savedAt = new Date(entry.savedAt).getTime()
+  if (!Number.isFinite(savedAt)) return false
+  const ageMs = clock().getTime() - savedAt
+  return ageMs >= 0 && ageMs <= ENRICHMENT_CACHE_TTL_DAYS * 24 * 60 * 60 * 1000
+}
+
+function delay(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve()
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function localEnrichmentResult(
+  brand: PartnerBrand,
+  localProspect: MarcaProspectada,
+  message: string,
+  status: PartnerAiStatus,
+): PartnerEnrichmentResult {
+  return {
+    brandId: brand.id,
+    source: 'local',
+    message,
+    aiStatus: status,
+    prospect: localProspect,
+  }
+}
+
+export async function enrichPartner(brandId: string, options: EnrichPartnerOptions = {}): Promise<PartnerEnrichmentResult> {
+  const clock = options.clock ?? (() => new Date())
+  const creator = options.creator ?? ROBERTO_CARECA_PROFILE
+  const brands = uniqueBrands(loadSeedPartners(), options.partners ?? [])
+  const brand = brands.find((item) => item.id === brandId)
+  if (!brand) throw new Error(`PARTNER_NOT_FOUND:${brandId}`)
+
+  const localProspect = brandToProspect(brand, creator)
+  const cached = options.cache?.get(brand.id)
+  if (cached && cacheIsFresh(cached, clock)) {
+    const status = aiStatus('available', 'Enriquecimento recuperado do cache local de 30 dias.', clock)
+    options.onAiStatus?.(status)
+    emitProgress(options.onProgress, 'phase', `enriquecimento de ${brand.nome} recuperado do cache`, clock)
+    return {
+      brandId: brand.id,
+      source: 'cache',
+      message: 'Enriquecimento recuperado do cache.',
+      aiStatus: status,
+      prospect: cached.prospect,
+    }
+  }
+
+  if (!options.apiKey) {
+    const status = aiStatus('offline', 'Gemini API key ausente; usando dados locais (IA offline).', clock)
+    options.onAiStatus?.(status)
+    emitProgress(options.onProgress, 'fallback', `usando dados locais (IA offline): ${brand.nome}`)
+    return localEnrichmentResult(
+      brand,
+      localProspect,
+      'Enriquecimento por IA indisponivel no momento. Mostrando dados da base local.',
+      status,
+    )
+  }
+
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+  const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
+  const fetchImpl = options.fetchImpl ?? fetch
+  const attempts = [
+    { model: 'gemini-2.5-flash', waitBeforeMs: 0 },
+    { model: 'gemini-2.5-flash', waitBeforeMs: retryDelayMs },
+    { model: 'gemini-1.5-flash', waitBeforeMs: 0 },
+  ]
+  let lastFailure = 'IA offline'
+
+  for (let index = 0; index < attempts.length; index += 1) {
+    const attempt = attempts[index]!
+    if (attempt.waitBeforeMs > 0) {
+      await delay(attempt.waitBeforeMs)
+    }
+
+    const body = buildEnrichmentBody(brand, localProspect, creator)
+    try {
+      const response = await callGeminiOnce(attempt.model, options.apiKey, body, timeoutMs, fetchImpl)
+      if (response.status >= 200 && response.status < 300) {
+        const patch = parseJsonPatch(response.text)
+        const prospect = mergeEnrichment(localProspect, patch)
+        const status = aiStatus('available', `Enriquecimento concluido com ${attempt.model}.`, clock)
+        options.cache?.set(brand.id, { brandId: brand.id, savedAt: nowIso(clock), prospect })
+        options.onAiStatus?.(status)
+        emitProgress(options.onProgress, 'phase', `enriquecimento de ${brand.nome} concluido com ${attempt.model}`, clock)
+        return {
+          brandId: brand.id,
+          source: 'ai',
+          message: 'Enriquecimento por IA concluido.',
+          aiStatus: status,
+          prospect,
+        }
+      }
+
+      lastFailure = `${attempt.model} HTTP ${response.status}: ${response.data.error?.message ?? 'sem detalhe'}`
+      if (RETRYABLE_HTTP_STATUSES.has(response.status) && index < attempts.length - 1) {
+        const status = aiStatus('slow', `${attempt.model} retornou ${response.status}; tentando fallback sem quebrar a UI.`, clock)
+        options.onAiStatus?.(status)
+        emitProgress(options.onProgress, 'fallback', `${attempt.model} retornou ${response.status}; usando fallback de enriquecimento`, clock)
+        continue
+      }
+      break
+    } catch (error) {
+      lastFailure = (error as Error).message || 'falha desconhecida'
+      if (index < attempts.length - 1) {
+        const status = aiStatus('slow', `${attempt.model} falhou; tentando fallback sem quebrar a UI.`, clock)
+        options.onAiStatus?.(status)
+        emitProgress(options.onProgress, 'fallback', `${attempt.model} falhou; usando fallback de enriquecimento`, clock)
+        continue
+      }
+      break
+    }
+  }
+
+  const status = aiStatus('offline', `usando dados locais (IA offline). Ultima falha: ${lastFailure}`, clock)
+  options.onAiStatus?.(status)
+  emitProgress(options.onProgress, 'fallback', `usando dados locais (IA offline): ${brand.nome}`)
+
+  return localEnrichmentResult(
+    brand,
+    localProspect,
+    'Enriquecimento por IA indisponivel no momento. Mostrando dados da base local.',
+    status,
+  )
 }

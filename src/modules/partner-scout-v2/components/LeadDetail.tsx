@@ -1,13 +1,17 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import type { MarcaProspectada, ContatoMarca } from '../agent/schema.js'
 import type { BrandStatus } from '../data/brand-cache.types.js'
+import type { PartnerAiStatus } from '../data/partner-database.types.js'
 
 interface LeadDetailProps {
   marca: MarcaProspectada | null
   onClose: () => void
   onSaveContact: (patch: Partial<ContatoMarca>) => void
   onSetStatus: (status: BrandStatus, nota?: string) => void
+  onEnrich: (marca: MarcaProspectada) => void
+  isEnriching: boolean
+  aiStatus: PartnerAiStatus | null
 }
 
 const STATUSES: BrandStatus[] = [
@@ -21,11 +25,17 @@ const STATUSES: BrandStatus[] = [
   'pular',
 ]
 
-export function LeadDetail({ marca, onClose, onSaveContact, onSetStatus }: LeadDetailProps) {
+export function LeadDetail({ marca, onClose, onSaveContact, onSetStatus, onEnrich, isEnriching, aiStatus }: LeadDetailProps) {
   const [emailPrimario, setEmailPrimario] = useState(marca?.contato.email_primario ?? '')
   const [emailAlt, setEmailAlt] = useState(marca?.contato.email_alternativo ?? '')
   const [agencia, setAgencia] = useState(marca?.contato.agencia_representante ?? '')
   const [novaNota, setNovaNota] = useState('')
+
+  useEffect(() => {
+    setEmailPrimario(marca?.contato.email_primario ?? '')
+    setEmailAlt(marca?.contato.email_alternativo ?? '')
+    setAgencia(marca?.contato.agencia_representante ?? '')
+  }, [marca])
 
   if (!marca) return null
 
@@ -105,12 +115,24 @@ export function LeadDetail({ marca, onClose, onSaveContact, onSetStatus }: LeadD
       <section className="mt-6 rounded-[10px] border border-white/10 bg-white/[0.02] p-4">
         <div className="flex items-center justify-between">
           <p className="text-xs uppercase tracking-wide text-zinc-400">Pitch sugerido</p>
-          <button
-            onClick={() => navigator.clipboard.writeText(marca.argumento_pitch)}
-            className="text-xs text-violet-300 hover:underline"
-          >
-            Copiar
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-500" title={aiStatus?.detail}>
+              {aiStatus?.label ?? 'IA verificando'}
+            </span>
+            <button
+              onClick={() => onEnrich(marca)}
+              disabled={isEnriching}
+              className="rounded border border-white/10 px-2 py-1 text-xs text-violet-300 hover:bg-violet-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isEnriching ? 'Enriquecendo...' : 'Enriquecer IA'}
+            </button>
+            <button
+              onClick={() => navigator.clipboard.writeText(marca.argumento_pitch)}
+              className="text-xs text-violet-300 hover:underline"
+            >
+              Copiar
+            </button>
+          </div>
         </div>
         <p className="mt-2 text-sm text-zinc-200 whitespace-pre-line">{marca.argumento_pitch}</p>
       </section>
