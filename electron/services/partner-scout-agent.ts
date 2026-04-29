@@ -38,12 +38,42 @@ const DEFAULT_TIMEOUT_MS = 8_000
 const DEFAULT_RETRY_DELAY_MS = 3_000
 const ENRICHMENT_CACHE_TTL_DAYS = 30
 const RETRYABLE_HTTP_STATUSES = new Set([429, 500, 503, 504])
+const LOCAL_USAGE: RunUsage = {
+  prompt_tokens: 0,
+  candidates_tokens: 0,
+  cached_content_tokens: 0,
+  tool_use_count: 0,
+  modelo_efetivo: LOCAL_PARTNER_MODEL,
+  custo_estimado_usd: 0,
+}
 
 const PRICING: Record<string, { input: number; output: number }> = {
   'gemini-2.5-flash': { input: 0.30, output: 2.50 },
   'gemini-1.5-flash': { input: 0.075, output: 0.30 },
   [LOCAL_PARTNER_MODEL]: { input: 0, output: 0 },
 }
+
+const CATEGORY_BASE_TICKET: Record<PartnerBrand['categoria'], number> = {
+  periferico_gamer: 19_500,
+  cadeira_gamer: 13_000,
+  pc_setup: 32_000,
+  energetico_snack: 19_500,
+  loja_jogos: 19_500,
+  vpn_software: 13_000,
+  mobile_gaming: 13_000,
+  aaa_publisher: 19_000,
+  streaming_gaming: 19_500,
+  cripto_p2e: 4_500,
+}
+
+const EVERGREEN_CATEGORIES = new Set<PartnerBrand['categoria']>([
+  'periferico_gamer',
+  'pc_setup',
+  'energetico_snack',
+  'loja_jogos',
+  'vpn_software',
+  'streaming_gaming',
+])
 
 export function estimateCostUsd(usage: Pick<RunUsage, 'prompt_tokens' | 'candidates_tokens' | 'tool_use_count' | 'modelo_efetivo'>): number {
   const p = PRICING[usage.modelo_efetivo] ?? PRICING['gemini-2.5-flash']!
@@ -198,10 +228,50 @@ function normalizeText(value: string): string {
 
 function uniqueBrands(seed: PartnerBrand[], extra: PartnerBrand[] = []): PartnerBrand[] {
   const map = new Map<string, PartnerBrand>()
-  for (const brand of [...seed, ...extra]) {
+  for (const brand of seed) {
+    map.set(brand.id, brand)
+  }
+  for (const brand of extra) {
     map.set(brand.id, brand)
   }
   return [...map.values()]
+}
+
+function searchableTextForBrand(brand: PartnerBrand): string {
+  return normalizeText([
+    brand.nome,
+    brand.categoria,
+    brand.porte,
+    ...brand.sub_categoria,
+    ...brand.tags,
+  ].join(' '))
+}
+
+function partnerMatchesFilters(
+  brand: PartnerBrand,
+  filters: {
+    onlyBr: boolean
+    ativaNoBr: boolean
+    minFit: number
+    categories: Set<PartnerBrand['categoria']>
+    portes: Set<PartnerDatabasePorte>
+    tags: string[]
+    query: string | null
+  },
+): boolean {
+  if (filters.categories.size > 0 && !filters.categories.has(brand.categoria)) return false
+  if (filters.portes.size > 0 && !filters.portes.has(brand.porte)) return false
+  if (filters.onlyBr && !brand.tem_br) return false
+  if (filters.ativaNoBr && !brand.ativa_no_br) return false
+  if (brand.fit_canal_games < filters.minFit) return false
+
+  if (filters.tags.length > 0) {
+    const haystack = normalizeText([...brand.tags, ...brand.sub_categoria].join(' '))
+    const hasAnyTag = filters.tags.some((tag) => haystack.includes(tag))
+    if (!hasAnyTag) return false
+  }
+
+  return !filters.query || searchableTextForBrand(brand).includes(filters.query)
 }
 
 export function normalizePartnerBrand(brand: PartnerBrand): PartnerBrand {
@@ -238,36 +308,18 @@ export function addPartner(brandData: PartnerBrand, existingBrands: PartnerBrand
 }
 
 export function searchPartners(filters: PartnerSearchFilters = {}, partners: PartnerBrand[] = loadSeedPartners()): PartnerBrand[] {
-  const onlyBr = filters.onlyBr ?? true
-  const ativaNoBr = filters.ativaNoBr ?? true
-  const minFit = filters.minFit ?? DEFAULT_MIN_FIT
-  const categories = new Set(filters.categorias ?? [])
-  const portes = new Set(filters.porte ?? [])
-  const tags = (filters.tags ?? []).map(normalizeText)
-  const query = filters.query ? normalizeText(filters.query) : null
+  const normalizedFilters = {
+    onlyBr: filters.onlyBr ?? true,
+    ativaNoBr: filters.ativaNoBr ?? true,
+    minFit: filters.minFit ?? DEFAULT_MIN_FIT,
+    categories: new Set(filters.categorias ?? []),
+    portes: new Set(filters.porte ?? []),
+    tags: (filters.tags ?? []).map(normalizeText),
+    query: filters.query ? normalizeText(filters.query) : null,
+  }
 
   const result = partners
-    .filter((brand) => categories.size === 0 || categories.has(brand.categoria))
-    .filter((brand) => portes.size === 0 || portes.has(brand.porte))
-    .filter((brand) => !onlyBr || brand.tem_br)
-    .filter((brand) => !ativaNoBr || brand.ativa_no_br)
-    .filter((brand) => brand.fit_canal_games >= minFit)
-    .filter((brand) => {
-      if (tags.length === 0) return true
-      const haystack = [...brand.tags, ...brand.sub_categoria].map(normalizeText)
-      return tags.some((tag) => haystack.some((value) => value.includes(tag)))
-    })
-    .filter((brand) => {
-      if (!query) return true
-      const haystack = normalizeText([
-        brand.nome,
-        brand.categoria,
-        brand.porte,
-        ...brand.sub_categoria,
-        ...brand.tags,
-      ].join(' '))
-      return haystack.includes(query)
-    })
+    .filter((brand) => partnerMatchesFilters(brand, normalizedFilters))
     .sort((a, b) => {
       const fitDiff = b.fit_canal_games - a.fit_canal_games
       if (fitDiff !== 0) return fitDiff
@@ -294,23 +346,6 @@ function tipoPubliFor(brand: PartnerBrand): TipoPubli {
   return 'integracao'
 }
 
-function categoryBaseTicket(category: PartnerBrand['categoria']): number {
-  const base: Record<PartnerBrand['categoria'], number> = {
-    periferico_gamer: 19_500,
-    cadeira_gamer: 13_000,
-    pc_setup: 32_000,
-    energetico_snack: 19_500,
-    loja_jogos: 19_500,
-    vpn_software: 13_000,
-    mobile_gaming: 13_000,
-    aaa_publisher: 19_000,
-    streaming_gaming: 19_500,
-    cripto_p2e: 4_500,
-  }
-
-  return base[category]
-}
-
 function roundTo500(value: number): number {
   return Math.max(1_500, Math.round(value / 500) * 500)
 }
@@ -320,7 +355,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 function ticketFor(brand: PartnerBrand, creator: CreatorProfile): TicketEstimadoBRL {
-  const base = categoryBaseTicket(brand.categoria)
+  const base = CATEGORY_BASE_TICKET[brand.categoria]
   const fitMultiplier = 0.75 + brand.fit_canal_games * 0.08
   const viewsMultiplier = clamp(creator.views_28d / 7_000_000, 0.85, 1.35)
   const ideal = roundTo500(base * fitMultiplier * viewsMultiplier)
@@ -437,16 +472,8 @@ function buildProspectionResult(
   totalCandidates: number,
 ): ProspectionResult {
   const prospects = brands.map((brand) => brandToProspect(brand, creator))
-  const evergreenCategories = new Set<PartnerBrand['categoria']>([
-    'periferico_gamer',
-    'pc_setup',
-    'energetico_snack',
-    'loja_jogos',
-    'vpn_software',
-    'streaming_gaming',
-  ])
   const evergreen = brands
-    .filter((brand) => evergreenCategories.has(brand.categoria))
+    .filter((brand) => EVERGREEN_CATEGORIES.has(brand.categoria))
     .slice(0, 12)
     .map((brand) => brandToProspect(brand, creator))
   const emailFound = prospects.filter((brand) => brand.contato.email_primario).length
@@ -489,24 +516,9 @@ export async function runProspection(options: RunOptions = {}): Promise<RunOutco
   }
 
   if (options.signal?.aborted) {
+    const run = abortedRun(startedAt, progressLog)
     return {
-      run: {
-        id: randomUUID(),
-        startedAt,
-        finishedAt: new Date().toISOString(),
-        status: 'aborted',
-        error: 'aborted',
-        usage: {
-          prompt_tokens: 0,
-          candidates_tokens: 0,
-          cached_content_tokens: 0,
-          tool_use_count: 0,
-          modelo_efetivo: LOCAL_PARTNER_MODEL,
-          custo_estimado_usd: 0,
-        },
-        result: null,
-        progressLog,
-      },
+      run,
       result: null,
       markdown: null,
     }
@@ -518,22 +530,13 @@ export async function runProspection(options: RunOptions = {}): Promise<RunOutco
   const result = buildProspectionResult(brands, creator, seed.length)
   emit('phase', `Busca local concluida com ${brands.length} marcas; usando dados locais como fonte da verdade.`)
 
-  const usage: RunUsage = {
-    prompt_tokens: 0,
-    candidates_tokens: 0,
-    cached_content_tokens: 0,
-    tool_use_count: 0,
-    modelo_efetivo: LOCAL_PARTNER_MODEL,
-    custo_estimado_usd: 0,
-  }
-
   const run: ProspectionRun = {
     id: randomUUID(),
     startedAt,
     finishedAt: new Date().toISOString(),
     status: 'done',
     error: null,
-    usage,
+    usage: localUsage(),
     result,
     progressLog,
   }
@@ -687,6 +690,31 @@ function localEnrichmentResult(
   }
 }
 
+function localUsage(): RunUsage {
+  return { ...LOCAL_USAGE }
+}
+
+function abortedRun(startedAt: string, progressLog: RunProgressEvent[]): ProspectionRun {
+  return {
+    id: randomUUID(),
+    startedAt,
+    finishedAt: new Date().toISOString(),
+    status: 'aborted',
+    error: 'aborted',
+    usage: localUsage(),
+    result: null,
+    progressLog,
+  }
+}
+
+function enrichmentAttempts(retryDelayMs: number): Array<{ model: string; waitBeforeMs: number }> {
+  return [
+    { model: 'gemini-2.5-flash', waitBeforeMs: 0 },
+    { model: 'gemini-2.5-flash', waitBeforeMs: retryDelayMs },
+    { model: 'gemini-1.5-flash', waitBeforeMs: 0 },
+  ]
+}
+
 export async function enrichPartner(brandId: string, options: EnrichPartnerOptions = {}): Promise<PartnerEnrichmentResult> {
   const clock = options.clock ?? (() => new Date())
   const creator = options.creator ?? ROBERTO_CARECA_PROFILE
@@ -724,11 +752,8 @@ export async function enrichPartner(brandId: string, options: EnrichPartnerOptio
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
   const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS
   const fetchImpl = options.fetchImpl ?? fetch
-  const attempts = [
-    { model: 'gemini-2.5-flash', waitBeforeMs: 0 },
-    { model: 'gemini-2.5-flash', waitBeforeMs: retryDelayMs },
-    { model: 'gemini-1.5-flash', waitBeforeMs: 0 },
-  ]
+  const attempts = enrichmentAttempts(retryDelayMs)
+  const body = buildEnrichmentBody(brand, localProspect, creator)
   let lastFailure = 'IA offline'
 
   for (let index = 0; index < attempts.length; index += 1) {
@@ -737,7 +762,6 @@ export async function enrichPartner(brandId: string, options: EnrichPartnerOptio
       await delay(attempt.waitBeforeMs)
     }
 
-    const body = buildEnrichmentBody(brand, localProspect, creator)
     try {
       const response = await callGeminiOnce(attempt.model, options.apiKey, body, timeoutMs, fetchImpl)
       if (response.status >= 200 && response.status < 300) {
