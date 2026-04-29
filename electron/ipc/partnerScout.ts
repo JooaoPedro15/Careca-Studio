@@ -1,4 +1,6 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, app, shell } from 'electron'
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 import { resolveGeminiApiKey } from '../services/gemini-key-resolver.js'
 import { createBrandCache } from '../services/brand-cache.js'
@@ -6,7 +8,8 @@ import { createRunHistory } from '../services/run-history.js'
 import { runProspection, GEMINI_MODEL_FALLBACK_CHAIN } from '../services/partner-scout-agent.js'
 
 import type { BrandStatus } from '../../src/modules/partner-scout-v2/data/brand-cache.types.js'
-import type { ContatoMarca } from '../../src/modules/partner-scout-v2/agent/schema.js'
+import type { ContatoMarca, MarcaProspectada } from '../../src/modules/partner-scout-v2/agent/schema.js'
+import type { EvergreenHint } from '../../src/modules/partner-scout-v2/agent/system-prompt.js'
 import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout-v2/data/creator-profile.js'
 
 // =============================================================================
@@ -164,6 +167,50 @@ function broadcast(channel: string, payload: unknown) {
   }
 }
 
+function partnerScoutDocsDir(): string {
+  const documents = app.getPath('documents')
+  const dir = join(documents, 'Careca Studio', 'partner-scout')
+  mkdirSync(dir, { recursive: true })
+  return dir
+}
+
+function evergreenStorePath(): string {
+  return join(app.getPath('userData'), 'partner-scout-evergreen.json')
+}
+
+function loadEvergreenAnterior(): EvergreenHint[] {
+  const path = evergreenStorePath()
+  if (!existsSync(path)) return []
+  try {
+    const raw = readFileSync(path, 'utf-8')
+    const parsed = JSON.parse(raw) as { hints?: EvergreenHint[] }
+    return parsed.hints ?? []
+  } catch {
+    return []
+  }
+}
+
+function saveEvergreenFromMarcas(marcas: MarcaProspectada[]): void {
+  const hints: EvergreenHint[] = marcas.map((m) => ({
+    marca: m.marca,
+    categoria: m.categoria,
+    motivo:
+      m.plano_parceria?.porque_faz_sentido?.slice(0, 200) ??
+      m.fit_demografico?.justificativa?.slice(0, 200) ??
+      'evergreen',
+  }))
+  writeFileSync(evergreenStorePath(), JSON.stringify({ hints, updatedAt: new Date().toISOString() }, null, 2), 'utf-8')
+}
+
+function writeMarkdownFile(runId: string, startedAt: string, markdown: string): string {
+  const dir = partnerScoutDocsDir()
+  const stamp = startedAt.replace(/[:.]/g, '-').slice(0, 19)
+  const filename = `${stamp}_${runId.slice(0, 8)}.md`
+  const fullPath = join(dir, filename)
+  writeFileSync(fullPath, markdown, 'utf-8')
+  return fullPath
+}
+
 export function registerPartnerScoutHandlers() {
   // ---- Legacy v1 handler (mantido ate a Task 10) ----
   ipcMain.handle('partnerScout:fetchOfficialYoutubeSignals', async () => {
@@ -197,6 +244,7 @@ export function registerPartnerScoutHandlers() {
     }
 
     const cacheHints = brandCache.getActiveSkipList(90)
+    const evergreenAnterior = loadEvergreenAnterior()
     const controller = new AbortController()
     activeRunController = controller
 
@@ -204,20 +252,33 @@ export function registerPartnerScoutHandlers() {
       apiKey: key,
       creator: ROBERTO_CARECA_PROFILE,
       cacheHints,
+      evergreenAnterior,
       modelChain: GEMINI_MODEL_FALLBACK_CHAIN,
       signal: controller.signal,
       onProgress: (event) => broadcast('partnerScout:progress', event),
     })
 
     promise
-      .then(({ run, result }) => {
-        runHistory.append(run)
-        if (result) {
+      .then(({ run, result, markdown }) => {
+        let markdownPath: string | null = null
+        if (result && markdown) {
+          try {
+            markdownPath = writeMarkdownFile(run.id, run.startedAt, markdown)
+          } catch (e) {
+            console.error('[partner-scout] falha ao salvar markdown', e)
+          }
+          try {
+            saveEvergreenFromMarcas(result.marcas_atemporais ?? [])
+          } catch (e) {
+            console.error('[partner-scout] falha ao persistir atemporais', e)
+          }
           for (const marca of result.resultado_final) {
             brandCache.upsertFromRun(marca)
           }
         }
-        broadcast('partnerScout:done', run)
+        const enrichedRun = { ...run, markdownPath }
+        runHistory.append(enrichedRun)
+        broadcast('partnerScout:done', enrichedRun)
       })
       .catch((error: Error) => {
         broadcast('partnerScout:error', { runId: activeRunId, error: error.message })
@@ -235,6 +296,17 @@ export function registerPartnerScoutHandlers() {
     if (!activeRunController) return { ok: false }
     activeRunController.abort(new Error('user-aborted'))
     return { ok: true }
+  })
+
+  ipcMain.handle('partnerScout:openMarkdownFolder', () => {
+    const dir = partnerScoutDocsDir()
+    void shell.openPath(dir)
+    return dir
+  })
+
+  ipcMain.handle('partnerScout:openMarkdownFile', (_, path: string) => {
+    void shell.openPath(path)
+    return path
   })
 
   ipcMain.handle('partnerScout:listRuns', () => runHistory.list())

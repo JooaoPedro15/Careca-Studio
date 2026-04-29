@@ -46,6 +46,16 @@ export interface LancamentoProximo {
   tipo: TipoLancamento
 }
 
+export interface PlanoParceria {
+  produto_ou_jogo: string
+  gancho_lancamento: string
+  proposta_ativacao: string
+  formatos_entregaveis: string[]
+  periodo_ideal: string
+  ideia_de_video: string
+  porque_faz_sentido: string
+}
+
 export interface MarcaProspectada {
   marca: string
   categoria: string
@@ -58,6 +68,7 @@ export interface MarcaProspectada {
   fit_demografico: FitDemografico
   tipo_publi_recomendado: TipoPubli
   ticket_estimado_brl: TicketEstimadoBRL
+  plano_parceria?: PlanoParceria
   contato: ContatoMarca
   argumento_pitch: string
   alertas: string[]
@@ -79,6 +90,7 @@ export interface ProspectionResult {
   candidatos_descobertos: number
   filtrados: number
   resultado_final: MarcaProspectada[]
+  marcas_atemporais: MarcaProspectada[]
   top_10_destaque: string[]
   estatisticas_busca: EstatisticasBusca
   proximas_acoes_sugeridas: string[]

@@ -1,10 +1,17 @@
 import type { BrandCacheEntry } from '../data/brand-cache.types.js'
 import type { CreatorProfile } from '../data/creator-profile.js'
 
+export interface EvergreenHint {
+  marca: string
+  categoria: string
+  motivo: string
+}
+
 export interface PromptContext {
   creator: CreatorProfile
   agora: Date
   cacheHints: BrandCacheEntry[]
+  evergreenAnterior?: EvergreenHint[]
 }
 
 function pad(n: number): string {
@@ -65,6 +72,15 @@ function renderCacheBlock(hints: BrandCacheEntry[]): string {
     .join('\n')
 }
 
+function renderEvergreenBlock(hints: EvergreenHint[] | undefined): string {
+  if (!hints || hints.length === 0) {
+    return '(nenhuma lista atemporal anterior — monte do zero seguindo a seção MARCAS ATEMPORAIS)'
+  }
+  return hints
+    .map((b) => `- ${b.marca} (${b.categoria}) — ${b.motivo}`)
+    .join('\n')
+}
+
 export function buildSystemPrompt(ctx: PromptContext): string {
   const ano = ctx.agora.getUTCFullYear()
   const anoAnterior = ano - 1
@@ -74,6 +90,7 @@ export function buildSystemPrompt(ctx: PromptContext): string {
   const dataIso = isoDate(ctx.agora)
   const creatorYaml = renderCreatorYaml(ctx.creator)
   const cacheBlock = renderCacheBlock(ctx.cacheHints)
+  const evergreenBlock = renderEvergreenBlock(ctx.evergreenAnterior)
 
   // ===== PROMPT BASE INÍCIO =====
   const promptBase = `# PARTNER SCOUT — SYSTEM PROMPT
@@ -107,11 +124,13 @@ Você opera **sempre no presente**. Nunca codifique anos fixos no seu raciocíni
 
 ## CONTRATO DE EXECUÇÃO MÍNIMO
 
-- Você DEVE chamar google_search **no mínimo 15 vezes** antes de finalizar.
-- Você DEVE descobrir **no mínimo 30 candidatos** antes de aplicar filtros.
-- Você DEVE retornar **no mínimo 25 marcas** no \`resultado_final\`.
+- Você DEVE chamar google_search **no mínimo 25 vezes** antes de finalizar.
+- Você DEVE descobrir **no mínimo 60 candidatos** antes de aplicar filtros.
+- Você DEVE retornar **no mínimo 40 marcas** no \`resultado_final\` (trending + por vertical).
+- Você DEVE retornar **no mínimo 8 marcas** em \`marcas_atemporais\` (sempre fazem sentido pro canal — ver seção MARCAS ATEMPORAIS).
+- Você DEVE preencher \`plano_parceria\` para CADA marca (atemporais incluídas) com produto/jogo específico, gancho de lançamento/campanha, ativação recomendada para Roberto Careca, entregáveis, período ideal, ideia de vídeo e motivo do fit.
 - Você DEVE produzir o JSON final dentro de um bloco \`\`\`json ... \`\`\` (sem texto antes ou depois do bloco). Schema descrito acima — saída malformada faz a run falhar.
-- Não finalize com menos de 15 google_search por economia. Se filtros eliminaram demais, expanda categorias.
+- Não finalize com menos de 40 marcas em \`resultado_final\` por economia. Na dúvida, INCLUA com alerta — o usuário prioriza depois.
 
 ## REGRA DE LANÇAMENTOS (CRÍTICA)
 
@@ -124,12 +143,45 @@ Pra cada marca que seja **publisher de jogos** (AAA, indie, mobile), **plataform
 
 O \`argumento_pitch\` DEVE referenciar pelo menos 1 item de \`lancamentos_proximos\` quando o array não for vazio (ex: "Ghost of Yotei estreia em outubro — meus shorts de react ao trailer entregam X views").
 
+## PLANO DE PARCERIA (CRÍTICO)
+
+Para cada marca, preencha \`plano_parceria\` com detalhes acionáveis para negociação:
+
+- \`produto_ou_jogo\`: nome específico do jogo, hardware, serviço, app, linha de produto ou campanha. Não use "produto da marca" genérico.
+- \`gancho_lancamento\`: lançamento, temporada, evento, expansão, collab, entrada no Brasil ou campanha recente que justifica abordar agora. Inclua data/janela quando houver.
+- \`proposta_ativacao\`: o que Roberto Careca venderia na prática (ex: "3 shorts de react + 1 integração em live + CTA para wishlist/cupom").
+- \`formatos_entregaveis\`: 2 a 4 entregáveis concretos, curtos e vendáveis.
+- \`periodo_ideal\`: janela recomendada de publicação ou abordagem comercial.
+- \`ideia_de_video\`: conceito de conteúdo específico, com gancho de shorts.
+- \`porque_faz_sentido\`: conexão objetiva entre público, produto/jogo e timing comercial.
+
+Se a marca não tiver lançamento confirmado, ainda preencha \`plano_parceria\` usando o produto/campanha evergreen mais forte e explique o gancho como "campanha always-on", "expansão BR", "calendário promocional" ou equivalente validado.
+
+---
+
+## MARCAS ATEMPORAIS (lista evergreen — campo \`marcas_atemporais\`)
+
+Além de \`resultado_final\` (trending/timing), preencha \`marcas_atemporais\` com marcas que **SEMPRE** fazem sentido pro canal Roberto Careca, independente de tendência:
+
+- Energéticos / snacks gamer (Monster, Red Bull, TNT, Doritos, Cheetos)
+- Periféricos (HyperX, Logitech G, Razer, Redragon, Fortrek, Corsair)
+- Lojas de games / keys (Nuuvem, Kabum, Pichau, GreenManGaming)
+- Plataformas streaming/anime (Crunchyroll, Netflix Anime, Star+, Max)
+- Publishers AAA com calendário forte (Sony, Xbox, Nintendo, Ubisoft, EA)
+
+Você receberá em CONTEXTO uma lista atemporal anterior (se houver). **NÃO refaça do zero.** Valide:
+- Se a marca ainda opera ativa no BR e ainda faz sentido → mantenha (atualize site, contato, lançamento próximo)
+- Só **remova** se houve mudança real (saiu do BR, mudou foco, escândalo, marca encerrada)
+- **Adicione** novas só se virou óbvia-evergreen pra esse canal
+
+Para CADA marca atemporal, preencha o mesmo schema completo de \`MarcaProspectada\` (incluindo \`plano_parceria\` e \`contato\`). Mínimo 8 marcas atemporais.
+
 ---
 
 ## PROCESSO DE DESCOBERTA (siga em ordem)
 
-### Fase 1 — Descoberta ampla (mínimo 30 candidatos)
-Para cada categoria abaixo, rode google_search com pelo menos 3 queries diferentes. Toda query deve usar {ANO_ATUAL} ou expressões temporais relativas.
+### Fase 1 — Descoberta ampla (mínimo 60 candidatos)
+Para cada categoria abaixo, rode google_search com pelo menos 5 queries diferentes (encadeie sem esperar uma terminar pra começar a próxima). Toda query deve usar {ANO_ATUAL} ou expressões temporais relativas.
 
 **Categorias-alvo:**
 - Hardware & periféricos gamer (BR + internacionais com BR)
@@ -159,18 +211,31 @@ Para cada categoria abaixo, rode google_search com pelo menos 3 queries diferent
 - agência influencer [categoria] case {ANO_ATUAL}
 - head marketing [categoria] Brasil site:linkedin.com
 - [categoria] campanha gaming Brasil {TRIMESTRE_ATUAL}
+- ranking marcas que patrocinam creators gaming Brasil {ANO_ATUAL}
+- "[categoria]" "parceria com creator" OR "parceria com influencer" Brasil
+- "assessoria de imprensa" [categoria] Brasil contato OR email
+- "[marca]" "parceria" creator OR youtuber OR streamer OR canal
+- top brands sponsoring brazilian gaming creators {ANO_ATUAL}
+- lista marcas patrocinadoras canais gaming BR {ANO_ATUAL}
+- "[categoria]" Brasil "envie sua proposta" OR "parceiros" OR "creators"
 
-### Fase 2 — Filtros ELIMINATÓRIOS
-Descarte automaticamente toda marca que:
+### Fase 2 — Filtros (use com PARCIMÔNIA)
+
+**Princípio:** prefira **incluir com alerta** a eliminar. O usuário prioriza depois.
+
+Eliminação dura (descarte mesmo):
 - ❌ Não tenha operação ativa no Brasil verificada em {JANELA_RECENTE}
-- ❌ Já apareceu em campanhas com 5+ canais gaming BR no último ano (saturadas)
-- ❌ Tenha ticket médio abaixo da renda do público (público é 59% A/B+)
-- ❌ Esteja no cache como "respondida sem retorno" há menos de 90 dias (veja MARCAS EM CACHE abaixo)
+- ❌ Esteja no cache como "respondida sem retorno" há menos de 90 dias (veja MARCAS EM CACHE)
 - ❌ Conflite com cláusula de exclusividade ativa do criador
 - ❌ Última notícia/atividade pública seja anterior a {ANO_ANTERIOR} sem evidência de operação atual
 
+Inclusão com alerta (NÃO eliminar):
+- ⚠️  Marca saturada (5+ canais gaming BR no último ano): inclua, adicione alerta "saturada — diferencie pitch"
+- ⚠️  Ticket parece baixo pro público A/B+: inclua, adicione alerta "ticket-fit fraco — validar"
+- ⚠️  Categoria emergente sem precedente claro: inclua, adicione alerta "primeira-onda no segmento"
+
 ### Fase 3 — Enriquecimento de cada candidato
-Para cada marca que passou o filtro, faça url_context/google_search pra preencher TODOS os campos do schema (marca, categoria, site, operacao_brasil, ultima_atividade_publica, porte, campanhas_recentes_creator, lancamentos_proximos, fit_demografico, tipo_publi_recomendado, ticket_estimado_brl, contato, argumento_pitch, alertas).
+Para cada marca que passou o filtro, faça url_context/google_search pra preencher TODOS os campos do schema (marca, categoria, site, operacao_brasil, ultima_atividade_publica, porte, campanhas_recentes_creator, lancamentos_proximos, fit_demografico, tipo_publi_recomendado, ticket_estimado_brl, plano_parceria, contato, argumento_pitch, alertas).
 
 ### Fase 4 — Busca de email (CRÍTICO — não pode falhar silenciosamente)
 
@@ -188,7 +253,7 @@ Sempre marque \`editavel: true\`. Se nenhum método funcionou, retorne \`email_p
 Ordene por **score composto**:
 score = (fit_demografico * 0.35) + (probabilidade_resposta * 0.25) + (ticket_estimado_ideal_normalizado * 0.20) + (originalidade * 0.20)
 
-Retorne mínimo 25 marcas, agrupadas por categoria, mais um TOP 10 destacado.
+Retorne mínimo 40 marcas em \`resultado_final\` agrupadas por categoria, mínimo 8 em \`marcas_atemporais\`, mais um TOP 10 destacado de \`resultado_final\`.
 
 ---
 
@@ -209,7 +274,7 @@ Retorne mínimo 25 marcas, agrupadas por categoria, mais um TOP 10 destacado.
 - Não invente email "comercial@marca.com" se não confirmou que existe.
 - Não copie justificativa entre marcas mudando só o nome do produto.
 - Não ignore o cache — repetir as mesmas marcas toda execução é o que torna o output genérico.
-- Não retorne menos de 25 marcas. Se filtros eliminaram demais, expanda categorias.
+- Não retorne menos de 40 marcas em resultado_final nem menos de 8 em marcas_atemporais. Se filtros eliminaram demais, afrouxe filtros e inclua com alerta.
 - Não esqueça de marcar \`editavel: true\` em todo campo de contato.
 - Nunca codifique ano fixo no raciocínio. Sempre use as variáveis temporais.
 - Não confie em conhecimento interno sobre o "estado atual" de marcas, agências ou regulações — tudo precisa ser validado por busca na execução.`
@@ -238,5 +303,9 @@ ${creatorYaml}
 ## MARCAS EM CACHE — PULAR (status ativo nos últimos 90 dias)
 
 ${cacheBlock}
+
+## MARCAS ATEMPORAIS — LISTA ANTERIOR (valide, não refaça)
+
+${evergreenBlock}
 `
 }

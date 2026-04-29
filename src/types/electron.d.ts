@@ -71,6 +71,8 @@ declare global {
         addBrandNote: (n: string, text: string) => Promise<BrandCacheEntry>
         getApiKeyStatus: () => Promise<{ configured: boolean; source: string; masked?: string }>
         getCreatorProfile: () => Promise<unknown>
+        openMarkdownFolder: () => Promise<string>
+        openMarkdownFile: (path: string) => Promise<string>
         // legacy v1 (a remover na Task 10):
         fetchOfficialYoutubeSignals: () => Promise<
           Array<{

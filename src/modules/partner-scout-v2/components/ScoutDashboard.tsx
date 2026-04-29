@@ -1,6 +1,7 @@
 import type { MarcaProspectada } from '../agent/schema.js'
 import type { ProspectionRun, RunProgressEvent } from '../agent/run.js'
 import type { BrandCacheEntry } from '../data/brand-cache.types.js'
+import type { ScoutTab } from '../data/prospection-run.store.js'
 import { LeadCard } from './LeadCard.js'
 
 interface ScoutDashboardProps {
@@ -9,8 +10,8 @@ interface ScoutDashboardProps {
   runs: ProspectionRun[]
   cache: BrandCacheEntry[]
   progressLog: RunProgressEvent[]
-  tab: 'top' | 'history' | 'cache'
-  onTab: (t: 'top' | 'history' | 'cache') => void
+  tab: ScoutTab
+  onTab: (t: ScoutTab) => void
   onRun: () => void
   onAbort: () => void
   onSelectMarca: (m: MarcaProspectada) => void
@@ -35,8 +36,16 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
         currentRun.result!.top_10_destaque.includes(m.marca),
       )
     : []
-  const cardsToShow = tab === 'top' ? (top10.length > 0 ? top10 : currentRun?.result?.resultado_final ?? []) : []
+  const allBrands = currentRun?.result?.resultado_final ?? []
+  const evergreenBrands = currentRun?.result?.marcas_atemporais ?? []
+  const cardsToShow =
+    tab === 'all' ? allBrands :
+    tab === 'top' ? (top10.length > 0 ? top10 : allBrands) :
+    tab === 'evergreen' ? evergreenBrands :
+    []
   const groups = groupByCategoria(cardsToShow)
+  const hasError = progressLog.some((e) => e.kind === 'error' || e.kind === 'fallback')
+  const markdownPath = currentRun?.markdownPath ?? null
 
   return (
     <div className="space-y-6">
@@ -46,9 +55,27 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
           {currentRun && (
             <p className="mt-1 font-mono text-xs text-zinc-400">
               Última run: {new Date(currentRun.startedAt).toLocaleString('pt-BR')} ·
-              {' '}{currentRun.result?.resultado_final.length ?? 0} marcas ·
+              {' '}{currentRun.result?.resultado_final.length ?? 0} trending +
+              {' '}{currentRun.result?.marcas_atemporais?.length ?? 0} atemporais ·
               {' '}US$ {currentRun.usage.custo_estimado_usd.toFixed(3)} ·
               {' '}{currentRun.usage.modelo_efetivo}
+            </p>
+          )}
+          {markdownPath && (
+            <p className="mt-1 flex items-center gap-2 font-mono text-xs text-emerald-400">
+              📄 <span className="truncate max-w-[480px]" title={markdownPath}>{markdownPath}</span>
+              <button
+                onClick={() => void window.careca.partnerScout.openMarkdownFile(markdownPath)}
+                className="rounded border border-emerald-500/30 px-2 py-0.5 text-[10px] hover:bg-emerald-500/10"
+              >
+                abrir
+              </button>
+              <button
+                onClick={() => void window.careca.partnerScout.openMarkdownFolder()}
+                className="rounded border border-white/10 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-white/5"
+              >
+                pasta
+              </button>
             </p>
           )}
         </div>
@@ -69,7 +96,7 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
       </header>
 
       <nav className="flex gap-1 border-b border-white/10">
-        {(['top', 'history', 'cache'] as const).map((t) => (
+        {(['all', 'top', 'evergreen', 'history', 'cache'] as const).map((t) => (
           <button
             key={t}
             onClick={() => props.onTab(t)}
@@ -78,27 +105,39 @@ export function ScoutDashboard(props: ScoutDashboardProps) {
               (tab === t ? 'border-b-2 border-violet-500 text-white' : 'text-zinc-400 hover:text-white')
             }
           >
-            {t === 'top' ? 'Top 10 do último run' : t === 'history' ? `Histórico (${runs.length})` : `Cache (${cache.length})`}
+            {t === 'all' ? `Todas (${allBrands.length})`
+              : t === 'top' ? 'Top 10'
+              : t === 'evergreen' ? `Atemporais (${evergreenBrands.length})`
+              : t === 'history' ? `Histórico (${runs.length})`
+              : `Cache (${cache.length})`}
           </button>
         ))}
       </nav>
 
-      {status === 'running' && (
-        <section className="rounded-[10px] border border-white/10 bg-black/30 p-4">
-          <p className="font-mono text-xs text-zinc-400">Log do agente (ao vivo)</p>
+      {(status === 'running' || hasError) && progressLog.length > 0 && (
+        <details
+          className="rounded-[10px] border border-white/10 bg-black/30 p-4"
+          open={hasError || status === 'error'}
+        >
+          <summary className="cursor-pointer font-mono text-xs text-zinc-400">
+            Log do agente {status === 'running' ? '(ao vivo)' : ''} · {progressLog.length} eventos
+            {hasError && <span className="ml-2 text-red-400">· erros detectados</span>}
+          </summary>
           <div className="mt-2 max-h-64 overflow-y-auto font-mono text-xs text-zinc-300">
-            {progressLog.map((e, i) => (
-              <p key={i} className="leading-snug">[{e.kind}] {e.detail}</p>
-            ))}
+            {progressLog
+              .filter((e) => hasError || status === 'running' ? true : e.kind === 'error' || e.kind === 'fallback')
+              .map((e, i) => (
+                <p key={i} className="leading-snug">[{e.kind}] {e.detail}</p>
+              ))}
           </div>
-        </section>
+        </details>
       )}
 
-      {tab === 'top' && cardsToShow.length === 0 && status === 'idle' && (
+      {(tab === 'all' || tab === 'top' || tab === 'evergreen') && cardsToShow.length === 0 && status === 'idle' && (
         <p className="text-center text-sm text-zinc-500">Nenhum run ainda. Clique em "Nova varredura" pra começar.</p>
       )}
 
-      {tab === 'top' && Object.entries(groups).map(([cat, marcas]) => (
+      {(tab === 'all' || tab === 'top' || tab === 'evergreen') && Object.entries(groups).map(([cat, marcas]) => (
         <section key={cat}>
           <h3 className="mb-3 text-xs uppercase tracking-wide text-zinc-400">{cat} ({marcas.length})</h3>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

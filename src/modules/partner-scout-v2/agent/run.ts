@@ -26,4 +26,5 @@ export interface ProspectionRun {
   usage: RunUsage
   result: ProspectionResult | null
   progressLog: RunProgressEvent[]
+  markdownPath?: string | null
 }

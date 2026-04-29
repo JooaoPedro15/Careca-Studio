@@ -8,13 +8,14 @@ if (!key) {
   process.exit(1)
 }
 console.log(`✓ Chave Gemini de fonte: ${source}`)
-console.log('Iniciando run de smoke (pode demorar 2-5min)...\n')
+console.log('Iniciando run real de prospecção (pode demorar 5-10min)...\n')
 
 const { run, result } = await runProspection({
   apiKey: key,
   creator: ROBERTO_CARECA_PROFILE,
   cacheHints: [],
-  maxToolCalls: 20,  // reduzido pra smoke
+  maxToolCalls: 80,
+  minimumBrands: 25,
   onProgress: (e) => console.log(`[${e.kind}] ${e.detail}`),
 })
 

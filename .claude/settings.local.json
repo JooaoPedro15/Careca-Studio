@@ -14,7 +14,15 @@
       "Bash(npx --yes @resvg/resvg-js-win32-x64-msvc@latest)",
       "Bash(npm ls:*)",
       "Bash(node -e \":*)",
-      "Bash(find \"D:/Projetos/careca-studio/src/components\" -type f -name \"*.tsx\" -exec wc -l {} \\\\;)"
+      "Bash(find \"D:/Projetos/careca-studio/src/components\" -type f -name \"*.tsx\" -exec wc -l {} \\\\;)",
+      "Bash(npx vitest *)",
+      "Bash(npm run *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git ls-tree *)",
+      "Bash(node --input-type=module -e \"import\\('./src/modules/partner-scout-v2/agent/system-prompt.ts'\\).then\\(m=>import\\('./src/modules/partner-scout-v2/data/creator-profile.ts'\\).then\\(c=>console.log\\(m.buildSystemPrompt\\({creator:c.ROBERTO_CARECA_PROFILE,agora:new Date\\(\\),cacheHints:[]}\\).length\\)\\)\\)\")",
+      "Bash(npx tsx *)",
+      "Bash(xargs grep *)"
     ]
   }
 }

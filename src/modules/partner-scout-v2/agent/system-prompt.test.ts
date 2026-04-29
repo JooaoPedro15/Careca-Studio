@@ -78,9 +78,11 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('google_search')
     expect(prompt).toContain('url_context')
     expect(prompt).toContain('CONTRATO DE EXECUÇÃO MÍNIMO')
-    expect(prompt).toContain('mínimo 15 vezes')
-    expect(prompt).toContain('mínimo 30 candidatos')
-    expect(prompt).toContain('mínimo 25 marcas')
+    expect(prompt).toContain('mínimo 25 vezes')
+    expect(prompt).toContain('mínimo 60 candidatos')
+    expect(prompt).toContain('mínimo 40 marcas')
+    expect(prompt).toContain('plano_parceria')
+    expect(prompt).toContain('marcas_atemporais')
   })
 
   it('contém o texto integral do system prompt original (anti-padrões, fases, score composto)', () => {
@@ -109,5 +111,42 @@ describe('buildSystemPrompt', () => {
     expect(prompt).toContain('lancamentos_proximos')
     expect(prompt).toContain('publisher')
     expect(prompt).toContain('argumento_pitch')
+  })
+
+  it('renderiza lista atemporal anterior quando fornecida', () => {
+    const prompt = buildSystemPrompt({
+      creator: ROBERTO_CARECA_PROFILE,
+      agora: new Date(),
+      cacheHints: [],
+      evergreenAnterior: [
+        { marca: 'Monster Energy', categoria: 'energético', motivo: 'sempre presente em gaming BR' },
+      ],
+    })
+
+    expect(prompt).toContain('MARCAS ATEMPORAIS — LISTA ANTERIOR')
+    expect(prompt).toContain('Monster Energy (energético)')
+  })
+
+  it('renderiza placeholder atemporal quando lista anterior é vazia', () => {
+    const prompt = buildSystemPrompt({
+      creator: ROBERTO_CARECA_PROFILE,
+      agora: new Date(),
+      cacheHints: [],
+    })
+
+    expect(prompt).toContain('nenhuma lista atemporal anterior')
+  })
+
+  it('exige plano de parceria com produto, gancho e entregaveis', () => {
+    const prompt = buildSystemPrompt({
+      creator: ROBERTO_CARECA_PROFILE,
+      agora: new Date(),
+      cacheHints: [],
+    })
+
+    expect(prompt).toContain('PLANO DE PARCERIA')
+    expect(prompt).toContain('produto_ou_jogo')
+    expect(prompt).toContain('gancho_lancamento')
+    expect(prompt).toContain('formatos_entregaveis')
   })
 })

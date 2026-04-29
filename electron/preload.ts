@@ -115,6 +115,8 @@ const api = {
       ipcRenderer.invoke('partnerScout:addBrandNote', { nomeNormalizado, text }),
     getApiKeyStatus: () => ipcRenderer.invoke('partnerScout:getApiKeyStatus'),
     getCreatorProfile: () => ipcRenderer.invoke('partnerScout:getCreatorProfile'),
+    openMarkdownFolder: () => ipcRenderer.invoke('partnerScout:openMarkdownFolder'),
+    openMarkdownFile: (path: string) => ipcRenderer.invoke('partnerScout:openMarkdownFile', path),
   },
   pptx: {
     inspect: (filePath: string) => ipcRenderer.invoke('pptx:inspect', filePath),

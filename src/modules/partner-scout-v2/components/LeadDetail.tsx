@@ -30,6 +30,17 @@ export function LeadDetail({ marca, onClose, onSaveContact, onSetStatus }: LeadD
   if (!marca) return null
 
   const fmt = (n: number) => new Intl.NumberFormat('pt-BR').format(n)
+  const principalLancamento = marca.lancamentos_proximos[0]
+  const plano = marca.plano_parceria
+  const produtoOuJogo = plano?.produto_ou_jogo ?? principalLancamento?.titulo ?? marca.categoria
+  const gancho =
+    plano?.gancho_lancamento ??
+    (principalLancamento ? `${principalLancamento.titulo} · ${principalLancamento.data_prevista}` : 'Sem lançamento confirmado; usar campanha evergreen validada.')
+  const propostaAtivacao = plano?.proposta_ativacao ?? marca.argumento_pitch
+  const formatos = plano?.formatos_entregaveis ?? [marca.tipo_publi_recomendado]
+  const periodoIdeal = plano?.periodo_ideal ?? 'Definir após resposta da marca'
+  const ideiaVideo = plano?.ideia_de_video ?? marca.argumento_pitch
+  const porqueFazSentido = plano?.porque_faz_sentido ?? marca.fit_demografico.justificativa
 
   return (
     <aside className="fixed right-0 top-0 z-30 h-full w-[480px] overflow-y-auto border-l border-white/10 bg-[#0e0e10] p-6">
@@ -51,6 +62,44 @@ export function LeadDetail({ marca, onClose, onSaveContact, onSetStatus }: LeadD
       <section className="mt-6">
         <p className="text-3xl font-mono text-white">{marca.fit_demografico.score}/10</p>
         <p className="mt-1 text-sm text-zinc-300">{marca.fit_demografico.justificativa}</p>
+      </section>
+
+      <section className="mt-6 rounded-[10px] border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+        <p className="text-xs uppercase tracking-wide text-emerald-300">Plano de parceria</p>
+        <div className="mt-3 space-y-3 text-sm">
+          <div>
+            <p className="text-xs text-zinc-500">Produto, jogo ou campanha</p>
+            <p className="text-zinc-100">{produtoOuJogo}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-500">Gancho de lançamento</p>
+            <p className="text-zinc-100">{gancho}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-500">Ativação recomendada</p>
+            <p className="text-zinc-100">{propostaAtivacao}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-zinc-500">Período ideal</p>
+              <p className="text-zinc-100">{periodoIdeal}</p>
+            </div>
+            <div>
+              <p className="text-xs text-zinc-500">Entregáveis</p>
+              <ul className="mt-1 space-y-1 text-zinc-100">
+                {formatos.map((f) => <li key={f}>{f}</li>)}
+              </ul>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-500">Ideia de vídeo</p>
+            <p className="text-zinc-100">{ideiaVideo}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-500">Por que faz sentido</p>
+            <p className="text-zinc-100">{porqueFazSentido}</p>
+          </div>
+        </div>
       </section>
 
       <section className="mt-6 rounded-[10px] border border-white/10 bg-white/[0.02] p-4">

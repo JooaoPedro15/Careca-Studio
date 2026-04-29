@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import type { ProspectionRun, RunProgressEvent } from '../agent/run.js'
 import type { BrandCacheEntry } from './brand-cache.types.js'
 
-export type ScoutTab = 'top' | 'history' | 'cache'
+export type ScoutTab = 'all' | 'top' | 'evergreen' | 'history' | 'cache'
 
 interface PartnerScoutV2State {
   status: 'idle' | 'running' | 'done' | 'error'
@@ -31,7 +31,7 @@ export const usePartnerScoutV2Store = create<PartnerScoutV2State>((set) => ({
   runs: [],
   cache: [],
   progressLog: [],
-  tab: 'top',
+  tab: 'all',
   selectedBrand: null,
   setTab: (tab) => set({ tab }),
   selectBrand: (n) => set({ selectedBrand: n }),
