@@ -99,9 +99,6 @@ careca-studio/
 ## Documentação
 
 - [Documentação técnica](DOCUMENTACAO_TECNICA.md)
-- [Media Kit Editor](01-media-kit-editor.md)
-- [Partner Scout](02-partner-scout.md)
-
 ## Licença
 
 Projeto privado de uso interno.

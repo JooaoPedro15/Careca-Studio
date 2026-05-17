@@ -4,3 +4,5 @@ dist-electron/
 *.log
 .DS_Store
 AGENTES.md
+01-media-kit-editor.md
+02-partner-scout.md
