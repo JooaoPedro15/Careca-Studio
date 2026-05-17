@@ -334,8 +334,8 @@ function resolveNvidiaBinPaths(root: string) {
 // Localiza o runner Python mantido dentro deste repo.
 function resolveRunnerScriptPath() {
   const candidates = [
-    path.resolve(process.cwd(), 'clip_splitter_service.py'),
-    path.resolve(process.cwd(), '..', 'careca-studio', 'clip_splitter_service.py'),
+    path.resolve(process.cwd(), 'python', 'clip_splitter_service.py'),
+    path.resolve(process.cwd(), '..', 'careca-studio', 'python', 'clip_splitter_service.py'),
   ]
 
   return candidates.find((candidate) => existsSync(candidate)) ?? null
@@ -597,7 +597,7 @@ async function runNextTask() {
     task.status = 'error'
     task.completedAt = Date.now()
     task.lastMessage = 'Runner do clip splitter nao encontrado.'
-    emitError(task, `${task.lastMessage} Verifique clip_splitter_service.py na raiz do projeto.`, 'error')
+    emitError(task, `${task.lastMessage} Verifique python/clip_splitter_service.py.`, 'error')
     refreshQueuedTasks()
     await runNextTask()
     return

@@ -98,7 +98,9 @@ careca-studio/
 
 ## Documentação
 
-- [Documentação técnica](DOCUMENTACAO_TECNICA.md)
+- [Documentação técnica](docs/DOCUMENTACAO_TECNICA.md)
+
+
 ## Licença
 
 Projeto privado de uso interno.

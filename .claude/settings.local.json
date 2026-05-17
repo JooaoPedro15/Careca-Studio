@@ -22,7 +22,9 @@
       "Bash(git ls-tree *)",
       "Bash(node --input-type=module -e \"import\\('./src/modules/partner-scout-v2/agent/system-prompt.ts'\\).then\\(m=>import\\('./src/modules/partner-scout-v2/data/creator-profile.ts'\\).then\\(c=>console.log\\(m.buildSystemPrompt\\({creator:c.ROBERTO_CARECA_PROFILE,agora:new Date\\(\\),cacheHints:[]}\\).length\\)\\)\\)\")",
       "Bash(npx tsx *)",
-      "Bash(xargs grep *)"
+      "Bash(xargs grep *)",
+      "Bash(git rm *)",
+      "Bash(git mv *)"
     ]
   }
 }

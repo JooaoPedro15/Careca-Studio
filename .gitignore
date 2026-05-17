@@ -3,6 +3,16 @@ dist/
 dist-electron/
 *.log
 .DS_Store
-AGENTES.md
+
+# Internal docs / agents
+AGENTS.md
 01-media-kit-editor.md
 02-partner-scout.md
+
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Test artifacts
+tmp-test/
