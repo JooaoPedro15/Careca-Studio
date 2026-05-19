@@ -1,21 +1,111 @@
+# Node / Build
 node_modules/
 dist/
 dist-electron/
-*.log
-.DS_Store
+build/
+out/
+*.tsbuildinfo
 
-# Internal docs / agents
+# Electron Builder
+release/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.zip
+*.snap
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Cache
+.cache/
+.vite/
+.turbo/
+.eslintcache
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+ehthumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude / agents (config local)
+.claude/
 AGENTS.md
+CLAUDE.md
 01-media-kit-editor.md
 02-partner-scout.md
+
+# Internal planning docs
+docs/superpowers/
 
 # Python
 __pycache__/
 **/__pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+*.egg-info/
+
+# IA / Scraping (datasets, modelos, runs)
+*.sqlite
+*.sqlite3
+*.db
+models/
+checkpoints/
+*.pt
+*.onnx
+*.gguf
+scraped/
+runs/
+artifacts/
+
+# FFmpeg / Mídia (mantém ícones em resources/)
+*.mp4
+*.mkv
+*.mov
+*.avi
+*.webm
+*.mp3
+*.wav
+*.flac
+*.srt
+*.vtt
 
 # Test artifacts
 tmp-test/
+tmp/
+.tmp/
+coverage/
+*.lcov
 
-# Claude Code local config
-.claude/
+# Scripts internos
+scripts/test-partner-scout-real.ts
+
+# Backups locais
+.sanitize-backup/

@@ -1,554 +1,161 @@
 {
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-04-20T14:30:00.000Z",
+    "lastUpdated": "2026-01-01T00:00:00.000Z",
     "activeTemplate": "completo"
   },
   "creator": {
-    "displayName": "Roberto Careca",
-    "realName": "Joao Roberto",
-    "bio": "Criador shorts-first de games e reacts com linguagem de creator, ritmo rapido e publis que parecem conteudo nativo.",
-    "positioning": "Criador shorts-first com 100k-350k views combinadas por publicacao em YouTube Shorts + TikTok.",
+    "displayName": "Creator Demo",
+    "realName": "Nome Real",
+    "bio": "Creator shorts-first de exemplo. Substitua este texto pelo seu posicionamento real.",
+    "positioning": "Creator shorts-first com X views combinadas por publicacao.",
     "differentials": [
-      "Bundles pensados para janelas de lancamento",
-      "Entrega organicamente integrada ao roteiro",
-      "Distribuicao combinada em plataformas curtas"
+      "Diferencial 1",
+      "Diferencial 2",
+      "Diferencial 3"
     ],
     "photoUrl": ""
   },
   "commercialChannels": {
     "main": {
-      "label": "Canal Principal - Games",
-      "description": "Canal focado em games, gameplay, listas e cortes com ritmo alto para shorts.",
+      "label": "Canal Principal",
+      "description": "Descricao do canal principal.",
       "youtube": {
-        "channelId": "UC-main-roberto-careca",
-        "handle": "@robertocareca",
-        "subscribers": 427000,
-        "monthlyViews": 10200000,
+        "channelId": "UC-exemplo",
+        "handle": "@creator-demo",
+        "subscribers": 100000,
+        "monthlyViews": 1000000,
         "shortsPerformance": {
           "platform": "youtube",
-          "avgViews": 98000,
-          "medianViews": 91000,
-          "topViews": 850000,
-          "retentionRate": 68,
-          "avgEngagement": 7.4
+          "avgViews": 20000,
+          "medianViews": 18000,
+          "topViews": 100000,
+          "retentionRate": 60,
+          "avgEngagement": 5
         },
         "topShorts": [
-          {
-            "id": "yt-1",
-            "title": "5 jogos que parecem mentira",
-            "platform": "youtube",
-            "views": 850000,
-            "publishedAt": "2026-03-08",
-            "thumbnailUrl": ""
-          },
-          {
-            "id": "yt-2",
-            "title": "O boss mais injusto de 2026",
-            "platform": "youtube",
-            "views": 412000,
-            "publishedAt": "2026-02-19",
-            "thumbnailUrl": ""
-          },
-          {
-            "id": "yt-3",
-            "title": "O mobile que me prendeu 30 dias",
-            "platform": "youtube",
-            "views": 288000,
-            "publishedAt": "2026-04-04",
-            "thumbnailUrl": ""
-          }
+          { "id": "yt-1", "title": "Top short 1", "platform": "youtube", "views": 100000, "publishedAt": "2026-01-01", "thumbnailUrl": "" },
+          { "id": "yt-2", "title": "Top short 2", "platform": "youtube", "views": 60000, "publishedAt": "2026-01-01", "thumbnailUrl": "" },
+          { "id": "yt-3", "title": "Top short 3", "platform": "youtube", "views": 40000, "publishedAt": "2026-01-01", "thumbnailUrl": "" }
         ],
-        "lastSyncedAt": "2026-04-20T14:30:00.000Z"
+        "lastSyncedAt": "2026-01-01T00:00:00.000Z"
       },
       "tiktok": {
-        "handle": "@robertocareca.games",
-        "followers": 281000,
+        "handle": "@creator-demo",
+        "followers": 50000,
         "shortsPerformance": {
           "platform": "tiktok",
-          "avgViews": 124000,
-          "medianViews": 101000,
-          "topViews": 640000,
-          "retentionRate": 61,
-          "avgEngagement": 8.6
+          "avgViews": 25000,
+          "medianViews": 20000,
+          "topViews": 120000,
+          "retentionRate": 55,
+          "avgEngagement": 6
         },
         "topShorts": [
-          {
-            "id": "tt-1",
-            "title": "O indie que merecia GOTY",
-            "platform": "tiktok",
-            "views": 640000,
-            "publishedAt": "2026-03-30",
-            "thumbnailUrl": ""
-          },
-          {
-            "id": "tt-2",
-            "title": "A arma roubada do battle royale",
-            "platform": "tiktok",
-            "views": 366000,
-            "publishedAt": "2026-04-09",
-            "thumbnailUrl": ""
-          },
-          {
-            "id": "tt-3",
-            "title": "Vale assinar esse catalogo?",
-            "platform": "tiktok",
-            "views": 275000,
-            "publishedAt": "2026-03-16",
-            "thumbnailUrl": ""
-          }
+          { "id": "tt-1", "title": "Top tiktok 1", "platform": "tiktok", "views": 120000, "publishedAt": "2026-01-01", "thumbnailUrl": "" },
+          { "id": "tt-2", "title": "Top tiktok 2", "platform": "tiktok", "views": 80000, "publishedAt": "2026-01-01", "thumbnailUrl": "" },
+          { "id": "tt-3", "title": "Top tiktok 3", "platform": "tiktok", "views": 50000, "publishedAt": "2026-01-01", "thumbnailUrl": "" }
         ]
       },
       "instagram": {
-        "handle": "@robertocareca",
-        "followers": 94000
+        "handle": "@creator-demo",
+        "followers": 20000
       },
-      "acceptedNiches": [
-        "aaa",
-        "indie",
-        "mobile",
-        "plataforma_gaming",
-        "energetico_snack"
-      ]
+      "acceptedNiches": ["aaa", "indie", "mobile", "plataforma_gaming", "energetico_snack"]
     },
     "react": {
-      "label": "TikTok React - Series e Animes",
-      "description": "Canal focado em reacts curtos, cliffhangers, teorias e comentarios rapidos de episodio.",
+      "label": "Canal Secundario",
+      "description": "Descricao do canal secundario.",
       "tiktok": {
-        "handle": "@carecareact",
-        "followers": 126000,
+        "handle": "@creator-demo-react",
+        "followers": 30000,
         "shortsPerformance": {
           "platform": "tiktok",
-          "avgViews": 62000,
-          "medianViews": 54000,
-          "topViews": 310000,
-          "retentionRate": 64,
-          "avgEngagement": 9.1
+          "avgViews": 15000,
+          "medianViews": 12000,
+          "topViews": 60000,
+          "retentionRate": 60,
+          "avgEngagement": 7
         },
         "topShorts": [
-          {
-            "id": "rt-1",
-            "title": "Trailer que explodiu meu cerebro",
-            "platform": "tiktok",
-            "views": 310000,
-            "publishedAt": "2026-03-25",
-            "thumbnailUrl": ""
-          },
-          {
-            "id": "rt-2",
-            "title": "Final de episodio absurdo",
-            "platform": "tiktok",
-            "views": 204000,
-            "publishedAt": "2026-04-12",
-            "thumbnailUrl": ""
-          },
-          {
-            "id": "rt-3",
-            "title": "O anime que eu nao esperava amar",
-            "platform": "tiktok",
-            "views": 182000,
-            "publishedAt": "2026-04-02",
-            "thumbnailUrl": ""
-          }
+          { "id": "rt-1", "title": "Top react 1", "platform": "tiktok", "views": 60000, "publishedAt": "2026-01-01", "thumbnailUrl": "" },
+          { "id": "rt-2", "title": "Top react 2", "platform": "tiktok", "views": 40000, "publishedAt": "2026-01-01", "thumbnailUrl": "" },
+          { "id": "rt-3", "title": "Top react 3", "platform": "tiktok", "views": 25000, "publishedAt": "2026-01-01", "thumbnailUrl": "" }
         ]
       },
-      "acceptedNiches": [
-        "streaming",
-        "anime",
-        "plataforma_video"
-      ]
+      "acceptedNiches": ["streaming", "anime", "plataforma_video"]
     }
   },
   "combinedShortsReach": {
-    "main": {
-      "averagePerPublication": 222000,
-      "label": "100k-350k views combinadas em 7 dias"
-    },
-    "react": {
-      "averagePerPublication": 62000,
-      "label": "40k-110k views por react em 7 dias"
-    }
+    "main": { "averagePerPublication": 50000, "label": "50k views combinadas (exemplo)" },
+    "react": { "averagePerPublication": 15000, "label": "15k views por react (exemplo)" }
   },
   "audience": {
     "main": {
       "ageRanges": [
-        { "range": "13-17", "percent": 24 },
-        { "range": "18-24", "percent": 41 },
-        { "range": "25-34", "percent": 26 },
-        { "range": "35+", "percent": 9 }
+        { "range": "13-17", "percent": 20 },
+        { "range": "18-24", "percent": 40 },
+        { "range": "25-34", "percent": 30 },
+        { "range": "35+", "percent": 10 }
       ],
-      "genderSplit": {
-        "male": 72,
-        "female": 25,
-        "other": 3
-      },
+      "genderSplit": { "male": 70, "female": 27, "other": 3 },
       "topCountries": [
-        { "country": "Brasil", "percent": 84 },
-        { "country": "Portugal", "percent": 6 },
-        { "country": "Estados Unidos", "percent": 4 }
+        { "country": "Brasil", "percent": 85 },
+        { "country": "Portugal", "percent": 5 },
+        { "country": "Outros", "percent": 10 }
       ],
-      "interests": [
-        "AAA",
-        "indies de descoberta",
-        "catalogos por assinatura",
-        "mobile RPG",
-        "memes de gameplay"
-      ]
+      "interests": ["Games", "Tecnologia", "Entretenimento"]
     },
     "react": {
       "ageRanges": [
-        { "range": "13-17", "percent": 31 },
-        { "range": "18-24", "percent": 44 },
-        { "range": "25-34", "percent": 19 },
-        { "range": "35+", "percent": 6 }
+        { "range": "13-17", "percent": 30 },
+        { "range": "18-24", "percent": 45 },
+        { "range": "25-34", "percent": 20 },
+        { "range": "35+", "percent": 5 }
       ],
-      "genderSplit": {
-        "male": 38,
-        "female": 58,
-        "other": 4
-      },
+      "genderSplit": { "male": 40, "female": 56, "other": 4 },
       "topCountries": [
         { "country": "Brasil", "percent": 88 },
         { "country": "Portugal", "percent": 4 },
-        { "country": "Mexico", "percent": 3 }
+        { "country": "Outros", "percent": 8 }
       ],
-      "interests": [
-        "streaming",
-        "anime de temporada",
-        "fandoms",
-        "trailers",
-        "teorias"
-      ]
+      "interests": ["Streaming", "Anime", "Entretenimento"]
     }
   },
   "cases": [
-    {
-      "brand": "Ubisoft",
-      "campaign": "Assassins Creed Shadows launch burst",
-      "channel": "main",
-      "format": "bundle",
-      "results": "720k views combinadas em 7 dias com 3 shorts + stories.",
-      "thumbnailUrl": "",
-      "date": "2026-03-18"
-    },
-    {
-      "brand": "Crunchyroll",
-      "campaign": "Semana de estreia de anime",
-      "channel": "react",
-      "format": "short_series",
-      "results": "184k views em 5 dias com 3 reacts em serie.",
-      "thumbnailUrl": "",
-      "date": "2026-04-08"
-    },
-    {
-      "brand": "Monster",
-      "campaign": "Gaming night burst",
-      "channel": "main",
-      "format": "stream",
-      "results": "1.1M de impressoes combinadas com 4 shorts + live.",
-      "thumbnailUrl": "",
-      "date": "2026-02-27"
-    },
-    {
-      "brand": "Netflix",
-      "campaign": "Trailer react de temporada",
-      "channel": "react",
-      "format": "short",
-      "results": "96k views em 72h com CTA para estreia.",
-      "thumbnailUrl": "",
-      "date": "2026-03-29"
-    }
+    { "brand": "Brand Demo A", "campaign": "Campanha exemplo", "channel": "main", "format": "bundle", "results": "Resultados serao preenchidos.", "thumbnailUrl": "", "date": "2026-01-01" },
+    { "brand": "Brand Demo B", "campaign": "Campanha exemplo", "channel": "react", "format": "short_series", "results": "Resultados serao preenchidos.", "thumbnailUrl": "", "date": "2026-01-01" }
   ],
   "pricing": {
-    "lastSyncedAt": "2026-04-19T11:00:00.000Z",
-    "disclaimer": "Valores de referencia. Ajustes conforme complexidade, exclusividade, periodo, direitos de uso e urgencia.",
+    "lastSyncedAt": "2026-01-01T00:00:00.000Z",
+    "disclaimer": "Valores de referencia. Ajustes conforme escopo, exclusividade e direitos de uso.",
     "items": [
-      {
-        "id": "short-main-combo",
-        "name": "Short patrocinado (YouTube + TikTok games)",
-        "price": 4500,
-        "description": "1 short 60s em YouTube Shorts + TikTok games. Media combinada de 100k-350k views em 7 dias.",
-        "channel": "main",
-        "isBundle": false
-      },
-      {
-        "id": "short-main-yt",
-        "name": "Short exclusivo YouTube Shorts",
-        "price": 2500,
-        "description": "1 short apenas no YouTube. Faixa media de 50k-150k views em 7 dias.",
-        "channel": "main",
-        "isBundle": false
-      },
-      {
-        "id": "short-main-tt",
-        "name": "Short exclusivo TikTok",
-        "price": 2800,
-        "description": "1 short dedicado apenas no TikTok games.",
-        "channel": "main",
-        "isBundle": false
-      },
-      {
-        "id": "stream-main",
-        "name": "Gameplay sponsored stream",
-        "price": 6500,
-        "description": "1h+ de live gameplay com mencoes organicas e cortes posteriores em shorts.",
-        "channel": "main",
-        "isBundle": false
-      },
-      {
-        "id": "stories-main",
-        "name": "Stories pack Instagram (3 stories)",
-        "price": 1800,
-        "description": "3 stories com link ou CTA por 24h.",
-        "channel": "main",
-        "isBundle": false
-      },
-      {
-        "id": "long-main",
-        "name": "Video longo dedicado",
-        "price": 0,
-        "description": "Formato sob consulta. Escopo e valor negociados caso a caso.",
-        "channel": "main",
-        "isBundle": false,
-        "underDemand": true
-      },
-      {
-        "id": "react-single",
-        "name": "TikTok react single (30-60s)",
-        "price": 2800,
-        "description": "1 TikTok react com mencao integrada, ideal para reveal e estreia.",
-        "channel": "react",
-        "isBundle": false
-      },
-      {
-        "id": "react-series",
-        "name": "TikTok react serie (3 videos semanais)",
-        "price": 7500,
-        "description": "3 TikToks cobrindo episodios ou momentos diferentes.",
-        "channel": "react",
-        "isBundle": false
-      },
-      {
-        "id": "react-dedicated",
-        "name": "TikTok react dedicado (60-90s)",
-        "price": 4000,
-        "description": "TikTok focado 100% na obra ou produto da marca.",
-        "channel": "react",
-        "isBundle": false
-      }
+      { "id": "short-main-combo", "name": "Short patrocinado (YouTube + TikTok)", "price": 0, "description": "Sob consulta.", "channel": "main", "isBundle": false, "underDemand": true },
+      { "id": "stream-main", "name": "Gameplay sponsored stream", "price": 0, "description": "Sob consulta.", "channel": "main", "isBundle": false, "underDemand": true },
+      { "id": "react-single", "name": "TikTok react single", "price": 0, "description": "Sob consulta.", "channel": "react", "isBundle": false, "underDemand": true }
     ],
     "bundles": [
-      {
-        "id": "starter_games",
-        "name": "Starter Games - Teste de canal",
-        "channel": "main",
-        "items": ["1 short YouTube + TikTok"],
-        "listPrice": 4500,
-        "bundlePrice": 4500,
-        "discount": "0%",
-        "pitch": "Entrada para marcas testando o canal com alcance combinado rapido.",
-        "ticketMedio": "R$ 4.500",
-        "estimatedReach": "100k-350k views",
-        "idealPara": ["aaa", "indie", "energetico_snack"]
-      },
-      {
-        "id": "gaming_launch",
-        "name": "Gaming Launch - AAA/Indie",
-        "channel": "main",
-        "items": ["3 shorts em sequencia", "1 gameplay sponsored stream", "2 stories"],
-        "listPrice": 23600,
-        "bundlePrice": 19000,
-        "discount": "19%",
-        "pitch": "Burst de shorts em 7 dias para dominar a janela de lancamento.",
-        "ticketMedio": "R$ 19.000",
-        "estimatedReach": "400k-1.2M views",
-        "idealPara": ["aaa", "indie"]
-      },
-      {
-        "id": "mobile_game",
-        "name": "Mobile Game - Conversao",
-        "channel": "main",
-        "items": ["2 shorts dedicados", "3 stories com codigo", "1 short follow-up"],
-        "listPrice": 16200,
-        "bundlePrice": 13000,
-        "discount": "20%",
-        "pitch": "Formato desenhado para awareness + conversao com follow-up.",
-        "ticketMedio": "R$ 13.000",
-        "estimatedReach": "300k-700k views",
-        "idealPara": ["mobile"]
-      },
-      {
-        "id": "plataforma_gaming",
-        "name": "Plataforma Gaming - Catalogo vivo",
-        "channel": "main",
-        "items": ["4 shorts ao longo do mes", "1 gameplay sponsored stream"],
-        "listPrice": 24500,
-        "bundlePrice": 19500,
-        "discount": "20%",
-        "pitch": "Sustenta presenca de marca e variedade de catalogo por um mes.",
-        "ticketMedio": "R$ 19.500",
-        "estimatedReach": "400k-1.4M views",
-        "idealPara": ["plataforma_gaming"]
-      },
-      {
-        "id": "energetico_snack",
-        "name": "Energetico ou Snack Gamer",
-        "channel": "main",
-        "items": ["4 shorts com produto em cena", "1 stream", "2 stories"],
-        "listPrice": 24800,
-        "bundlePrice": 19500,
-        "discount": "21%",
-        "pitch": "Alta recorrencia visual com produto inserido organicamente no gameplay.",
-        "ticketMedio": "R$ 19.500",
-        "estimatedReach": "400k-1M views",
-        "idealPara": ["energetico_snack"]
-      },
-      {
-        "id": "mensal_games",
-        "name": "Mensal Games - Parceria recorrente",
-        "channel": "main",
-        "items": ["8 shorts por mes", "1 gameplay sponsored stream", "4 stories"],
-        "listPrice": 43000,
-        "bundlePrice": 32000,
-        "discount": "26%",
-        "pitch": "Presenca sustentada com contrato minimo de 3 meses.",
-        "ticketMedio": "R$ 32.000/mes",
-        "estimatedReach": "800k-2.4M views/mes",
-        "idealPara": [
-          "aaa",
-          "indie",
-          "mobile",
-          "plataforma_gaming",
-          "energetico_snack"
-        ]
-      },
-      {
-        "id": "starter_streaming",
-        "name": "Starter Streaming - Lancamento pontual",
-        "channel": "react",
-        "items": ["1 TikTok react dedicado"],
-        "listPrice": 4000,
-        "bundlePrice": 4000,
-        "discount": "0%",
-        "pitch": "Entrada para plataformas testarem o canal em um reveal ou estreia.",
-        "ticketMedio": "R$ 4.000",
-        "idealPara": ["streaming", "anime"]
-      },
-      {
-        "id": "streaming_launch",
-        "name": "Streaming Launch - Serie ou temporada",
-        "channel": "react",
-        "items": ["1 react no lancamento", "3 reacts semanais", "1 react final"],
-        "listPrice": 14300,
-        "bundlePrice": 11500,
-        "discount": "20%",
-        "pitch": "Cobertura completa da janela de estreia com acompanhamento semanal.",
-        "ticketMedio": "R$ 11.500",
-        "idealPara": ["streaming", "anime"]
-      },
-      {
-        "id": "anime_season",
-        "name": "Anime Season - Temporada completa",
-        "channel": "react",
-        "items": ["1 react do episodio 1", "reacts semanais", "1 react final"],
-        "listPrice": 38000,
-        "bundlePrice": 28000,
-        "discount": "26%",
-        "pitch": "Formato premium para fandoms e plataformas com exibicao continua.",
-        "ticketMedio": "R$ 28.000",
-        "idealPara": ["anime", "streaming"]
-      },
-      {
-        "id": "mensal_streaming",
-        "name": "Mensal Streaming - Parceria recorrente",
-        "channel": "react",
-        "items": ["4 TikToks react por mes"],
-        "listPrice": 11200,
-        "bundlePrice": 8800,
-        "discount": "21%",
-        "pitch": "Presenca constante para calendario de conteudos da plataforma.",
-        "ticketMedio": "R$ 8.800/mes",
-        "idealPara": ["streaming", "anime", "plataforma_video"]
-      },
-      {
-        "id": "cross_canal",
-        "name": "Cross-canal - Adaptacao de game em serie",
-        "channel": "main+react",
-        "items": ["2 shorts no canal games", "2 TikToks react no canal react"],
-        "listPrice": 14600,
-        "bundlePrice": 12000,
-        "discount": "18%",
-        "pitch": "Ativa dois publicos quando o IP atravessa games e streaming.",
-        "ticketMedio": "R$ 12.000",
-        "idealPara": ["streaming", "aaa"]
-      }
+      { "id": "starter", "name": "Starter - Teste de canal", "channel": "main", "items": ["1 short"], "listPrice": 0, "bundlePrice": 0, "discount": "0%", "pitch": "Pacote de entrada.", "ticketMedio": "Sob consulta", "idealPara": ["aaa", "indie"] }
     ]
   },
   "contact": {
-    "email": "contato@carecastudio.com.br",
-    "whatsapp": "+55 11 99999-2026",
+    "email": "contato@example.com",
+    "whatsapp": "+55 00 00000-0000",
     "manager": {
-      "name": "Joao Roberto",
-      "email": "joao@carecastudio.com.br"
+      "name": "Nome do Manager",
+      "email": "manager@example.com"
     }
   },
   "externalSlide": {
     "backgroundImage": null,
     "fileName": null,
     "updatedAt": null,
-    "canvas": {
-      "width": 1920,
-      "height": 1080
-    },
+    "canvas": { "width": 1920, "height": 1080 },
     "blocks": [
-      {
-        "id": "headline",
-        "label": "Headline",
-        "text": "Seu titulo principal aqui",
-        "x": 180,
-        "y": 180,
-        "width": 1180,
-        "fontSize": 72,
-        "fontWeight": 700,
-        "color": "#ffffff",
-        "align": "left"
-      },
-      {
-        "id": "subheadline",
-        "label": "Subheadline",
-        "text": "Subtitulo ou resumo curto do slide externo",
-        "x": 180,
-        "y": 340,
-        "width": 1220,
-        "fontSize": 34,
-        "fontWeight": 500,
-        "color": "#f5f5f5",
-        "align": "left"
-      },
-      {
-        "id": "body",
-        "label": "Corpo",
-        "text": "Use este bloco para trocar metricas, argumentos comerciais ou observacoes do slide.",
-        "x": 180,
-        "y": 470,
-        "width": 1280,
-        "fontSize": 28,
-        "fontWeight": 400,
-        "color": "#e5e5e5",
-        "align": "left"
-      },
-      {
-        "id": "footer",
-        "label": "Rodape",
-        "text": "Contato ou CTA final",
-        "x": 180,
-        "y": 920,
-        "width": 1080,
-        "fontSize": 24,
-        "fontWeight": 500,
-        "color": "#ffffff",
-        "align": "left"
-      }
+      { "id": "headline", "label": "Headline", "text": "Seu titulo principal aqui", "x": 180, "y": 180, "width": 1180, "fontSize": 72, "fontWeight": 700, "color": "#ffffff", "align": "left" },
+      { "id": "subheadline", "label": "Subheadline", "text": "Subtitulo curto", "x": 180, "y": 340, "width": 1220, "fontSize": 34, "fontWeight": 500, "color": "#f5f5f5", "align": "left" },
+      { "id": "body", "label": "Corpo", "text": "Corpo do slide externo.", "x": 180, "y": 470, "width": 1280, "fontSize": 28, "fontWeight": 400, "color": "#e5e5e5", "align": "left" },
+      { "id": "footer", "label": "Rodape", "text": "Contato ou CTA final", "x": 180, "y": 920, "width": 1080, "fontSize": 24, "fontWeight": 500, "color": "#ffffff", "align": "left" }
     ]
   },
   "nativePptx": {
