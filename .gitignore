@@ -16,3 +16,6 @@ __pycache__/
 
 # Test artifacts
 tmp-test/
+
+# Claude Code local config
+.claude/
