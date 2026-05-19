@@ -67,7 +67,7 @@ const tools = [
 
 export function Sidebar({ activeTool, onSelect }: SidebarProps) {
   return (
-    <aside className="flex h-full w-[280px] flex-col rounded-2xl border border-white/8 bg-dark/92 p-4 shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
+    <aside className="flex h-full flex-col rounded-2xl border border-white/8 bg-dark/92 p-4 shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
       <div className="app-drag flex items-center gap-3 rounded-xl border border-white/6 bg-white/3 px-4 py-5">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white">
           <CarecaIcon className="h-6 w-6" />
@@ -87,6 +87,7 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
           return (
             <button
               key={tool.id}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'app-no-drag flex w-full items-center gap-4 rounded-xl border px-4 py-4 text-left transition duration-200',
                 isActive
