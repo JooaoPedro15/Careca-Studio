@@ -13,15 +13,15 @@ import type {
   SubtitleTaskOptions,
 } from './subtitle'
 import type { PptxDeck, PptxTextUpdate } from './pptx'
-import type { BrandCacheEntry, BrandStatus } from '../modules/partner-scout-v2/data/brand-cache.types'
-import type { ContatoMarca } from '../modules/partner-scout-v2/agent/schema'
-import type { ProspectionRun, RunProgressEvent } from '../modules/partner-scout-v2/agent/run'
+import type { BrandCacheEntry, BrandStatus } from '../modules/partner-scout/data/brand-cache.types'
+import type { ContatoMarca } from '../modules/partner-scout/agent/schema'
+import type { ProspectionRun, RunProgressEvent } from '../modules/partner-scout/agent/run'
 import type {
   PartnerAiStatus,
   PartnerBrand,
   PartnerEnrichmentResult,
   PartnerSearchFilters,
-} from '../modules/partner-scout-v2/data/partner-database.types'
+} from '../modules/partner-scout/data/partner-database.types'
 
 declare global {
   interface Window {

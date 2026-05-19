@@ -40,6 +40,24 @@ Ele funciona como um painel local: o renderer React cuida da experiência visual
 - **Testes:** Vitest
 - **Workers locais:** Python para transcrição e processamento de mídia
 
+## Arquitetura
+
+```
+┌──────────────────┐     IPC      ┌──────────────────┐     stdio     ┌──────────────────┐
+│  Renderer React  │ ◄──────────► │ Electron main +  │ ◄───────────► │  Python workers  │
+│  (Vite, Tailwind)│              │ preload bridge   │               │  (Whisper, FFmpeg)│
+└──────────────────┘              └──────────────────┘               └──────────────────┘
+        │                                  │
+        ▼                                  ▼
+   Zustand store                    electron-store
+   (estado UI)                      (persistência)
+```
+
+- **Renderer** (`src/`): UI React + Tailwind, estado via Zustand
+- **Main process** (`electron/`): IPC handlers, persistência, orquestração de workers
+- **Workers Python** (`python/`): pipelines de transcrição (faster-whisper) e processamento de vídeo
+- **Bundle splitting**: vendor (`react`/`react-dom`) e ícones em chunks separados para cache otimizado
+
 ## Pré-requisitos
 
 - Node.js 22+
@@ -48,11 +66,19 @@ Ele funciona como um painel local: o renderer React cuida da experiência visual
 - FFmpeg e FFprobe disponíveis no sistema
 - GPU NVIDIA com CUDA é opcional, mas recomendada para transcrição com Whisper
 
-Alguns módulos também podem usar projetos ou credenciais locais:
+## Configuração
 
-- `CARECA_SUBTITLE_FORGE_PATH`: caminho do ambiente Python usado pelo SubtitleForge.
-- `CARECA_CLIP_SPLITTER_PATH`: caminho do projeto externo usado pelo Clip Splitter.
-- `GEMINI_API_KEY`: chave opcional para recursos de IA do Partner Scout.
+```bash
+cp .env.example .env
+# preencha GEMINI_API_KEY e YOUTUBE_API_KEY se quiser usar integrações de IA
+```
+
+Variáveis opcionais (apenas se for usar os respectivos módulos):
+
+- `CARECA_SUBTITLE_FORGE_PATH`: caminho do ambiente Python usado pelo SubtitleForge
+- `CARECA_CLIP_SPLITTER_PATH`: caminho do projeto externo usado pelo Clip Splitter
+- `GEMINI_API_KEY`: chave para enriquecimento de marcas no Partner Scout
+- `YOUTUBE_API_KEY`: chave para sincronização de métricas no Media Kit
 
 ## Instalação
 
@@ -83,24 +109,30 @@ Esse comando inicia o Vite, compila o processo principal do Electron em modo wat
 
 ```text
 careca-studio/
-├─ electron/        # Processo principal, preload e handlers IPC
-├─ python/          # Workers Python locais
-├─ resources/       # Ícones e assets do aplicativo
-├─ src/             # Interface React
-│  ├─ components/   # Componentes compartilhados
-│  ├─ hooks/        # Integração entre UI e Electron
-│  ├─ modules/      # Módulos principais do produto
-│  ├─ pages/        # Telas do app
-│  ├─ store/        # Estado global Zustand
-│  └─ types/        # Contratos TypeScript
-└─ docs/            # Especificações e planos técnicos
+├─ electron/             # Processo principal, preload e handlers IPC
+│  ├─ ipc/               # Handlers IPC (clipSplitter, partnerScout, pptx, subtitle)
+│  └─ services/          # Serviços do main (cache, agent, run-history)
+├─ python/               # Workers locais (faster-whisper, FFmpeg)
+├─ resources/            # Ícones do aplicativo
+├─ scripts/              # Scripts utilitários
+├─ src/
+│  ├─ components/
+│  │  ├─ layout/         # Sidebar e Topbar
+│  │  └─ ui/             # Primitivos (Button, Card, Badge…)
+│  ├─ hooks/             # Hooks que conectam UI ao Electron
+│  ├─ modules/           # Módulos de negócio
+│  │  ├─ media-kit/
+│  │  └─ partner-scout/
+│  ├─ pages/             # Telas que ainda não viraram módulo
+│  ├─ store/             # Estado global Zustand
+│  └─ types/             # Contratos TypeScript compartilhados
+└─ docs/                 # Documentação técnica
 ```
 
-## Documentação
+## Segurança
 
-- [Documentação técnica](docs/DOCUMENTACAO_TECNICA.md)
-
+Reporte vulnerabilidades conforme [SECURITY.md](SECURITY.md).
 
 ## Licença
 
-Projeto privado de uso interno.
+[MIT](LICENSE) © 2026 João Pedro Costa e Silva

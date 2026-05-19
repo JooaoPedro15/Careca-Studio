@@ -1,151 +1,276 @@
-import { Globe, Mail, Sparkles } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
-import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { nicheLabels, targetChannelLabels } from '@/modules/partner-scout/data/niche-filters'
-import type { GeneratedPitch, Lead } from '@/modules/partner-scout/data/leads.store'
+import type { MarcaProspectada, ContatoMarca } from '../agent/schema.js'
+import type { BrandStatus } from '../data/brand-cache.types.js'
+import type { PartnerAiStatus } from '../data/partner-database.types.js'
 
 interface LeadDetailProps {
-  lead: Lead | null
-  pitch: GeneratedPitch | null
-  onGeneratePitch: (lead: Lead) => void
+  marca: MarcaProspectada | null
+  onClose: () => void
+  onSaveContact: (patch: Partial<ContatoMarca>) => void
+  onSetStatus: (status: BrandStatus, nota?: string) => void
+  onEnrich: (marca: MarcaProspectada) => void
+  isEnriching: boolean
+  aiStatus: PartnerAiStatus | null
 }
 
-export function LeadDetail({ lead, pitch, onGeneratePitch }: LeadDetailProps) {
-  if (!lead) {
-    return (
-      <Card className="flex min-h-[420px] items-center justify-center">
-        <p className="text-sm text-text-secondary">Selecione um lead para ver os detalhes.</p>
-      </Card>
-    )
-  }
+const STATUSES: BrandStatus[] = [
+  'descoberta',
+  'a_contatar',
+  'contatada',
+  'em_negociacao',
+  'convertida',
+  'sem_retorno',
+  'rejeitada',
+  'pular',
+]
+
+export function LeadDetail({ marca, onClose, onSaveContact, onSetStatus, onEnrich, isEnriching, aiStatus }: LeadDetailProps) {
+  const [emailPrimario, setEmailPrimario] = useState(marca?.contato.email_primario ?? '')
+  const [emailAlt, setEmailAlt] = useState(marca?.contato.email_alternativo ?? '')
+  const [agencia, setAgencia] = useState(marca?.contato.agencia_representante ?? '')
+  const [novaNota, setNovaNota] = useState('')
+
+  useEffect(() => {
+    setEmailPrimario(marca?.contato.email_primario ?? '')
+    setEmailAlt(marca?.contato.email_alternativo ?? '')
+    setAgencia(marca?.contato.agencia_representante ?? '')
+  }, [marca])
+
+  if (!marca) return null
+
+  const fmt = (n: number) => new Intl.NumberFormat('pt-BR').format(n)
+  const principalLancamento = marca.lancamentos_proximos[0]
+  const plano = marca.plano_parceria
+  const produtoOuJogo = plano?.produto_ou_jogo ?? principalLancamento?.titulo ?? marca.categoria
+  const gancho =
+    plano?.gancho_lancamento ??
+    (principalLancamento ? `${principalLancamento.titulo} · ${principalLancamento.data_prevista}` : 'Sem lançamento confirmado; usar campanha evergreen validada.')
+  const propostaAtivacao = plano?.proposta_ativacao ?? marca.argumento_pitch
+  const formatos = plano?.formatos_entregaveis ?? [marca.tipo_publi_recomendado]
+  const periodoIdeal = plano?.periodo_ideal ?? 'Definir após resposta da marca'
+  const ideiaVideo = plano?.ideia_de_video ?? marca.argumento_pitch
+  const porqueFazSentido = plano?.porque_faz_sentido ?? marca.fit_demografico.justificativa
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <div className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Detalhe do lead</p>
-              <h3 className="mt-3 text-3xl font-semibold text-text-primary">{lead.brand}</h3>
-            </div>
-            <Badge tone={lead.targetChannel === 'main' ? 'blue' : 'yellow'}>{targetChannelLabels[lead.targetChannel]}</Badge>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="rounded-2xl border border-white/8 bg-black/16 p-4">
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Globe className="h-4 w-4" />
-                Site
-              </div>
-              <a className="mt-2 block text-sm text-text-primary underline-offset-4 hover:underline" href={lead.website} target="_blank" rel="noreferrer">
-                {lead.website}
-              </a>
-            </div>
-            <div className="rounded-2xl border border-white/8 bg-black/16 p-4">
-              <div className="flex items-center gap-2 text-sm text-text-secondary">
-                <Mail className="h-4 w-4" />
-                Contato marketing
-              </div>
-              <p className="mt-2 text-sm text-text-primary">{lead.marketingContact}</p>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-white/8 bg-black/16 p-4">
-            <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Resumo de fit</p>
-            <p className="mt-2 text-sm leading-6 text-text-primary">
-              {nicheLabels[lead.niche]} com score {lead.score.total}. {lead.reasoning}
-            </p>
-            <div className="mt-4 rounded-2xl border border-white/8 bg-white/4 p-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Lancamento monitorado</p>
-              <p className="mt-2 text-sm font-medium text-text-primary">{lead.launchLabel}</p>
-              <p className="mt-2 text-sm leading-6 text-text-secondary">{lead.launchEvidence}</p>
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-white/8 bg-white/4 p-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Seu publico</p>
-                <p className="mt-2 text-sm font-medium text-text-primary">{lead.audienceFitLabel}</p>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">{lead.audienceFitReasoning}</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-white/4 p-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-text-muted">Por que hoje</p>
-                <p className="mt-2 text-sm leading-6 text-text-primary">{lead.whyNow}</p>
-                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-text-muted">Bundle sugerido</p>
-                <p className="mt-2 text-sm font-medium text-text-primary">{lead.recommendedBundleName}</p>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">{lead.recommendedAngle}</p>
-                <p className="mt-3 text-xs uppercase tracking-[0.18em] text-text-muted">Como abordar</p>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">{lead.recommendedNextStep}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 xl:grid-cols-2">
-            <div className="rounded-2xl border border-white/8 bg-black/16 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Evidencias</p>
-              <div className="mt-3 space-y-3">
-                {lead.evidences.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-white/8 bg-white/4 p-3">
-                    <p className="text-sm text-text-primary">{item.label}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-text-muted">{item.date}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/8 bg-black/16 p-4">
-              <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Historico e canais similares</p>
-              <div className="mt-3 space-y-3">
-                {lead.campaignHistory.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-white/8 bg-white/4 p-3">
-                    <p className="text-sm text-text-primary">{item.summary}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.18em] text-text-muted">
-                      {item.sourceChannel} - {item.date}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {lead.similarChannels.map((item) => (
-                  <span key={item} className="rounded-full border border-white/8 bg-white/4 px-3 py-1.5 text-xs text-text-primary">
-                    {item}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <Button leadingIcon={<Sparkles className="h-4 w-4" />} onClick={() => onGeneratePitch(lead)}>
-            Gerar email de pitch
-          </Button>
+    <aside className="fixed right-0 top-0 z-30 h-full w-[480px] overflow-y-auto border-l border-white/10 bg-[#0e0e10] p-6">
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="font-display text-xl text-white">{marca.marca}</h2>
+          <a href={marca.site} target="_blank" rel="noreferrer" className="text-xs text-violet-300 underline">
+            {marca.site}
+          </a>
+          <p className="mt-1 text-xs text-zinc-400">
+            {marca.categoria} · {marca.porte} · BR {marca.operacao_brasil}
+          </p>
         </div>
-      </Card>
+        <button onClick={onClose} className="text-zinc-400 hover:text-white" aria-label="Fechar">
+          ✕
+        </button>
+      </div>
 
-      {pitch && pitch.leadId === lead.id ? (
-        <Card>
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Pitch generator</p>
-                <h4 className="mt-2 text-2xl font-semibold text-text-primary">{pitch.bundleName}</h4>
-                <p className="mt-2 text-sm text-text-secondary">Assunto sugerido: {pitch.subject}</p>
-              </div>
-              <Badge tone="green">{pitch.attachmentLabel}</Badge>
+      <section className="mt-6">
+        <p className="text-3xl font-mono text-white">{marca.fit_demografico.score}/10</p>
+        <p className="mt-1 text-sm text-zinc-300">{marca.fit_demografico.justificativa}</p>
+      </section>
+
+      <section className="mt-6 rounded-[10px] border border-emerald-500/20 bg-emerald-500/[0.04] p-4">
+        <p className="text-xs uppercase tracking-wide text-emerald-300">Plano de parceria</p>
+        <div className="mt-3 space-y-3 text-sm">
+          <div>
+            <p className="text-xs text-zinc-500">Produto, jogo ou campanha</p>
+            <p className="text-zinc-100">{produtoOuJogo}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-500">Gancho de lançamento</p>
+            <p className="text-zinc-100">{gancho}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-500">Ativação recomendada</p>
+            <p className="text-zinc-100">{propostaAtivacao}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-xs text-zinc-500">Período ideal</p>
+              <p className="text-zinc-100">{periodoIdeal}</p>
             </div>
-
-            <div className="grid gap-4 xl:grid-cols-2">
-              <div className="rounded-2xl border border-white/8 bg-black/16 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Versao proativa</p>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-primary">{pitch.proactive}</p>
-              </div>
-              <div className="rounded-2xl border border-white/8 bg-black/16 p-4">
-                <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Versao reativa</p>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text-primary">{pitch.reactive}</p>
-              </div>
+            <div>
+              <p className="text-xs text-zinc-500">Entregáveis</p>
+              <ul className="mt-1 space-y-1 text-zinc-100">
+                {formatos.map((f) => <li key={f}>{f}</li>)}
+              </ul>
             </div>
           </div>
-        </Card>
-      ) : null}
-    </div>
+          <div>
+            <p className="text-xs text-zinc-500">Ideia de vídeo</p>
+            <p className="text-zinc-100">{ideiaVideo}</p>
+          </div>
+          <div>
+            <p className="text-xs text-zinc-500">Por que faz sentido</p>
+            <p className="text-zinc-100">{porqueFazSentido}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-[10px] border border-white/10 bg-white/[0.02] p-4">
+        <div className="flex items-center justify-between">
+          <p className="text-xs uppercase tracking-wide text-zinc-400">Pitch sugerido</p>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-zinc-500" title={aiStatus?.detail}>
+              {aiStatus?.label ?? 'IA verificando'}
+            </span>
+            <button
+              onClick={() => onEnrich(marca)}
+              disabled={isEnriching}
+              className="rounded border border-white/10 px-2 py-1 text-xs text-violet-300 hover:bg-violet-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isEnriching ? 'Enriquecendo...' : 'Enriquecer IA'}
+            </button>
+            <button
+              onClick={() => navigator.clipboard.writeText(marca.argumento_pitch)}
+              className="text-xs text-violet-300 hover:underline"
+            >
+              Copiar
+            </button>
+          </div>
+        </div>
+        <p className="mt-2 text-sm text-zinc-200 whitespace-pre-line">{marca.argumento_pitch}</p>
+      </section>
+
+      <section className="mt-6">
+        <p className="text-xs uppercase tracking-wide text-zinc-400">Ticket estimado (BRL)</p>
+        <div className="mt-2 grid grid-cols-3 gap-2 font-mono text-sm">
+          <div>
+            <p className="text-zinc-500">mín</p>
+            <p className="text-white">R$ {fmt(marca.ticket_estimado_brl.minimo)}</p>
+          </div>
+          <div>
+            <p className="text-zinc-500">ideal</p>
+            <p className="text-white">R$ {fmt(marca.ticket_estimado_brl.ideal)}</p>
+          </div>
+          <div>
+            <p className="text-zinc-500">premium</p>
+            <p className="text-white">R$ {fmt(marca.ticket_estimado_brl.premium)}</p>
+          </div>
+        </div>
+        <p className="mt-2 text-xs text-zinc-500 font-mono">{marca.ticket_estimado_brl.base_calculo}</p>
+      </section>
+
+      <section className="mt-6">
+        <p className="text-xs uppercase tracking-wide text-zinc-400">Lançamentos próximos</p>
+        {marca.lancamentos_proximos.length === 0 ? (
+          <p className="mt-2 text-xs text-zinc-500">Sem lançamentos confirmados nos próximos 6 meses.</p>
+        ) : (
+          <ul className="mt-2 space-y-1 text-sm text-zinc-200">
+            {marca.lancamentos_proximos.map((l) => (
+              <li key={l.titulo} className="flex items-center gap-2">
+                <span>{l.tipo === 'jogo' ? '🎮' : l.tipo === 'produto' ? '📦' : l.tipo === 'evento' ? '🎫' : '📺'}</span>
+                <span className="font-medium">{l.titulo}</span>
+                <span className="font-mono text-xs text-zinc-400">· {l.data_prevista}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="mt-6">
+        <p className="text-xs uppercase tracking-wide text-zinc-400">Contato (editável)</p>
+        <label className="mt-2 block text-xs text-zinc-300">
+          Email primário
+          <input
+            type="email"
+            value={emailPrimario}
+            onChange={(e) => setEmailPrimario(e.target.value)}
+            className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 font-mono text-sm text-white"
+          />
+        </label>
+        <label className="mt-2 block text-xs text-zinc-300">
+          Email alternativo
+          <input
+            type="email"
+            value={emailAlt}
+            onChange={(e) => setEmailAlt(e.target.value)}
+            className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 font-mono text-sm text-white"
+          />
+        </label>
+        <label className="mt-2 block text-xs text-zinc-300">
+          Agência
+          <input
+            type="text"
+            value={agencia}
+            onChange={(e) => setAgencia(e.target.value)}
+            className="mt-1 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-sm text-white"
+          />
+        </label>
+        <button
+          onClick={() => onSaveContact({
+            email_primario: emailPrimario || null,
+            email_alternativo: emailAlt || null,
+            agencia_representante: agencia || null,
+          })}
+          className="mt-2 rounded-md bg-violet-600 px-3 py-1.5 text-xs text-white hover:bg-violet-500"
+        >
+          Salvar contato
+        </button>
+        <p className="mt-2 text-xs text-zinc-500">Fonte original: {marca.contato.fonte_email}</p>
+        {marca.contato.formulario_parcerias && (
+          <a
+            href={marca.contato.formulario_parcerias}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 block text-xs text-violet-300 underline"
+          >
+            Formulário de parcerias →
+          </a>
+        )}
+      </section>
+
+      {marca.campanhas_recentes_creator.length > 0 && (
+        <section className="mt-6">
+          <p className="text-xs uppercase tracking-wide text-zinc-400">Campanhas recentes</p>
+          <ul className="mt-2 space-y-1 text-xs text-zinc-300">
+            {marca.campanhas_recentes_creator.map((c, i) => (
+              <li key={i}>
+                <a href={c.link} target="_blank" rel="noreferrer" className="text-violet-300 underline">
+                  {c.creator}
+                </a>{' '}
+                · {c.data}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {marca.alertas.length > 0 && (
+        <section className="mt-6">
+          <p className="text-xs uppercase tracking-wide text-yellow-400">Alertas</p>
+          <ul className="mt-2 list-disc pl-5 text-xs text-zinc-300">
+            {marca.alertas.map((a, i) => <li key={i}>{a}</li>)}
+          </ul>
+        </section>
+      )}
+
+      <section className="mt-6">
+        <p className="text-xs uppercase tracking-wide text-zinc-400">Status</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {STATUSES.map((s) => (
+            <button
+              key={s}
+              onClick={() => onSetStatus(s, novaNota || undefined)}
+              className="rounded-md border border-white/10 px-2 py-1 text-xs text-zinc-200 hover:bg-violet-500/20"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={novaNota}
+          onChange={(e) => setNovaNota(e.target.value)}
+          placeholder="Adicionar nota junto com a mudança de status (opcional)"
+          className="mt-2 w-full rounded-md border border-white/10 bg-black/30 px-2 py-1 text-xs text-white"
+          rows={2}
+        />
+      </section>
+    </aside>
   )
 }

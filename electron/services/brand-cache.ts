@@ -3,13 +3,13 @@ import Store from 'electron-store'
 import type {
   BrandCacheEntry,
   BrandStatus,
-} from '../../src/modules/partner-scout-v2/data/brand-cache.types.js'
-import { BRAND_STATUS_ATIVO } from '../../src/modules/partner-scout-v2/data/brand-cache.types.js'
+} from '../../src/modules/partner-scout/data/brand-cache.types.js'
+import { BRAND_STATUS_ATIVO } from '../../src/modules/partner-scout/data/brand-cache.types.js'
 import type {
   ContatoMarca,
   MarcaProspectada,
-} from '../../src/modules/partner-scout-v2/agent/schema.js'
-import { normalizeBrandName } from '../../src/modules/partner-scout-v2/utils/normalize-brand-name.js'
+} from '../../src/modules/partner-scout/agent/schema.js'
+import { normalizeBrandName } from '../../src/modules/partner-scout/utils/normalize-brand-name.js'
 
 interface BrandCacheStoreSchema {
   entries: Record<string, BrandCacheEntry>

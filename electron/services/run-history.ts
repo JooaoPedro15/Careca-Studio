@@ -1,6 +1,6 @@
 import Store from 'electron-store'
 
-import type { ProspectionRun } from '../../src/modules/partner-scout-v2/agent/run.js'
+import type { ProspectionRun } from '../../src/modules/partner-scout/agent/run.js'
 
 interface RunHistoryStoreSchema {
   runs: Record<string, ProspectionRun>

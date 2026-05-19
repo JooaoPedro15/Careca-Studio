@@ -14,15 +14,15 @@ import {
 } from '../services/partner-scout-agent.js'
 import { createPartnerScoutStore } from '../services/partner-scout-store.js'
 
-import type { BrandStatus } from '../../src/modules/partner-scout-v2/data/brand-cache.types.js'
-import type { ContatoMarca, MarcaProspectada } from '../../src/modules/partner-scout-v2/agent/schema.js'
-import type { EvergreenHint } from '../../src/modules/partner-scout-v2/agent/system-prompt.js'
+import type { BrandStatus } from '../../src/modules/partner-scout/data/brand-cache.types.js'
+import type { ContatoMarca, MarcaProspectada } from '../../src/modules/partner-scout/agent/schema.js'
+import type { EvergreenHint } from '../../src/modules/partner-scout/agent/system-prompt.js'
 import type {
   PartnerAiStatus,
   PartnerBrand,
   PartnerSearchFilters,
-} from '../../src/modules/partner-scout-v2/data/partner-database.types.js'
-import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout-v2/data/creator-profile.js'
+} from '../../src/modules/partner-scout/data/partner-database.types.js'
+import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout/data/creator-profile.js'
 
 // =============================================================================
 // LEGACY (v1) — Partner Scout YouTube signals

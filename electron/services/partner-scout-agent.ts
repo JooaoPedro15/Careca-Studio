@@ -2,8 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import type { CreatorProfile } from '../../src/modules/partner-scout-v2/data/creator-profile.js'
-import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout-v2/data/creator-profile.js'
+import type { CreatorProfile } from '../../src/modules/partner-scout/data/creator-profile.js'
+import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout/data/creator-profile.js'
 import type {
   PartnerAiStatus,
   PartnerBrand,
@@ -11,7 +11,7 @@ import type {
   PartnerDatabasePorte,
   PartnerEnrichmentResult,
   PartnerSearchFilters,
-} from '../../src/modules/partner-scout-v2/data/partner-database.types.js'
+} from '../../src/modules/partner-scout/data/partner-database.types.js'
 import type {
   ContatoMarca,
   FitDemografico,
@@ -21,14 +21,14 @@ import type {
   ProspectionResult,
   TicketEstimadoBRL,
   TipoPubli,
-} from '../../src/modules/partner-scout-v2/agent/schema.js'
+} from '../../src/modules/partner-scout/agent/schema.js'
 import type {
   ProspectionRun,
   RunProgressEvent,
   RunUsage,
-} from '../../src/modules/partner-scout-v2/agent/run.js'
-import { resultToMarkdown } from '../../src/modules/partner-scout-v2/agent/result-to-markdown.js'
-import seedDatabase from '../../src/modules/partner-scout-v2/data/partners.json' with { type: 'json' }
+} from '../../src/modules/partner-scout/agent/run.js'
+import { resultToMarkdown } from '../../src/modules/partner-scout/agent/result-to-markdown.js'
+import seedDatabase from '../../src/modules/partner-scout/data/partners.json' with { type: 'json' }
 
 export const LOCAL_PARTNER_MODEL = 'local-partners-json'
 export const GEMINI_MODEL_FALLBACK_CHAIN = ['gemini-2.5-flash', 'gemini-1.5-flash'] as const
@@ -192,8 +192,8 @@ function emitProgress(
 
 function seedPartnersPathCandidates(): string[] {
   return [
-    join(process.cwd(), 'src', 'modules', 'partner-scout-v2', 'data', 'partners.json'),
-    join(process.cwd(), 'dist-electron', 'src', 'modules', 'partner-scout-v2', 'data', 'partners.json'),
+    join(process.cwd(), 'src', 'modules', 'partner-scout', 'data', 'partners.json'),
+    join(process.cwd(), 'dist-electron', 'src', 'modules', 'partner-scout', 'data', 'partners.json'),
   ]
 }
 
@@ -484,7 +484,7 @@ function buildProspectionResult(
     ano_referencia: new Date().getFullYear(),
     janela_temporal_busca: 'base local curada',
     criador: creator.nome,
-    queries_executadas: ['base_local:src/modules/partner-scout-v2/data/partners.json'],
+    queries_executadas: ['base_local:src/modules/partner-scout/data/partners.json'],
     candidatos_descobertos: totalCandidates,
     filtrados: Math.max(0, totalCandidates - prospects.length),
     resultado_final: prospects,

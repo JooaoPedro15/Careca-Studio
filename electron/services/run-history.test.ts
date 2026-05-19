@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import { createRunHistory, type RunHistory } from './run-history.js'
-import type { ProspectionRun } from '../../src/modules/partner-scout-v2/agent/run.js'
+import type { ProspectionRun } from '../../src/modules/partner-scout/agent/run.js'
 
 const baseRun = (id: string, startedAt: string): ProspectionRun => ({
   id,

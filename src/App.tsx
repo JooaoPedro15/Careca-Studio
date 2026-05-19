@@ -1,17 +1,13 @@
-import { Sidebar } from '@/components/Sidebar'
-import { Topbar } from '@/components/Topbar'
+import { Sidebar } from '@/components/layout/Sidebar'
+import { Topbar } from '@/components/layout/Topbar'
 import { useClipSplitter } from '@/hooks/useClipSplitter'
 import { useSubtitleForge } from '@/hooks/useSubtitleForge'
 import { MediaKitModule } from '@/modules/media-kit'
 import { PartnerScoutModule } from '@/modules/partner-scout'
-import { PartnerScoutModuleV2 } from '@/modules/partner-scout-v2'
 import { ClipSplitterPage } from '@/pages/ClipSplitter'
 import { SubtitleForgePage } from '@/pages/SubtitleForge'
 import { useAppStore } from '@/store/appStore'
 import type { ToolId } from '@/types/subtitle'
-
-// TEMPORÁRIO — remover na Task 10 (swap atômico v1→v2)
-const SHOW_V2 = true
 
 const pageMeta: Record<ToolId, { title: string; description: string }> = {
   'subtitle-forge': {
@@ -54,7 +50,7 @@ export default function App() {
   } else if (activeTool === 'media-kit') {
     content = <MediaKitModule />
   } else if (activeTool === 'partner-scout') {
-    content = SHOW_V2 ? <PartnerScoutModuleV2 /> : <PartnerScoutModule />
+    content = <PartnerScoutModule />
   } else {
     content = (
       <SubtitleForgePage

@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import { createBrandCache, type BrandCache } from './brand-cache.js'
-import type { MarcaProspectada } from '../../src/modules/partner-scout-v2/agent/schema.js'
+import type { MarcaProspectada } from '../../src/modules/partner-scout/agent/schema.js'
 
 const FIXED_NOW = '2026-04-25T12:00:00.000Z'
 const fixedClock = () => new Date(FIXED_NOW)

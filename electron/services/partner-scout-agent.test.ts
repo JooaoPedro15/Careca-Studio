@@ -9,7 +9,7 @@ import {
   searchPartners,
   type PartnerEnrichmentCacheEntry,
 } from './partner-scout-agent.js'
-import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout-v2/data/creator-profile.js'
+import { ROBERTO_CARECA_PROFILE } from '../../src/modules/partner-scout/data/creator-profile.js'
 
 function retryableResponse(status: number, message: string) {
   return {

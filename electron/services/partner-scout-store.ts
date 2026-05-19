@@ -1,6 +1,6 @@
 import Store from 'electron-store'
 
-import type { PartnerBrand } from '../../src/modules/partner-scout-v2/data/partner-database.types.js'
+import type { PartnerBrand } from '../../src/modules/partner-scout/data/partner-database.types.js'
 import type {
   PartnerEnrichmentCache,
   PartnerEnrichmentCacheEntry,
