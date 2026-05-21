@@ -1,5 +1,7 @@
 // Modo base usado pelo algoritmo de corte.
 export type ClipSplitterMode = 'fixed' | 'silence'
+// Intensidade da pre-edicao de pausas no modo silencio.
+export type ClipSplitterPreEditMode = 'conservative' | 'balanced' | 'aggressive'
 // Rotulos de feedback manual usados para memoria local dos clipes.
 export type ClipFeedbackLabel = 'weak' | 'good' | 'viral'
 
@@ -16,6 +18,8 @@ export interface ClipSplitterOptions {
   // Configuracoes enviadas para o processo de corte/exportacao.
   useAi: boolean
   mode: ClipSplitterMode
+  preEditMode: ClipSplitterPreEditMode
+  writeDebugJson: boolean
   targetDurationSec: number
   minClipDurationSec: number
   maxClipDurationSec: number
@@ -54,6 +58,7 @@ export interface ClipSplitterTaskEventBase {
   progress: number | null
   queuePosition?: number
   outputDir?: string | null
+  debugPath?: string | null
   clipsCreated?: number
   totalClips?: number
   sourceDurationSec?: number
@@ -95,6 +100,7 @@ export interface ClipSplitterTask {
   progress: number | null
   queuePosition: number | null
   outputDir: string | null
+  debugPath: string | null
   clipsCreated: number
   totalClips: number | null
   sourceDurationSec: number | null

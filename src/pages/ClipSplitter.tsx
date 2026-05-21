@@ -24,7 +24,7 @@ interface ClipSplitterPageProps {
   onPickOutputDir: () => Promise<{ ok: boolean; message: string | null }>
   /** Abre o file picker nativo para o usuário escolher o vídeo fonte */
   onPickSourceFile: () => Promise<{ ok: boolean; message: string | null }>
-  /** Dispara o processo de split/exportação dos clips */
+  /** Dispara o processo de pre-edicao do bruto */
   onStartSplit: () => Promise<{ ok: boolean; message: string | null }>
   /** Cancela uma tarefa específica da fila, identificada pelo taskId */
   onCancelTask: (taskId: string) => void
@@ -38,8 +38,7 @@ interface ClipSplitterPageProps {
 
 /**
  * Página principal do Clip Splitter.
- * Permite ao usuário selecionar um vídeo longo, configurar a estratégia de corte
- * (fixo, silêncio, IA) e exportar os clips em lote via FFmpeg.
+ * Permite selecionar um bruto longo e gerar uma pre-edicao unica com pausas mais limpas.
  */
 export function ClipSplitterPage({
   onPickOutputDir,
@@ -71,7 +70,7 @@ export function ClipSplitterPage({
   // ── Tarefas que pediram IA mas caíram em fallback local (Whisper/Gemini indisponível)
   const fallbackTasks = tasks.filter((task) => task.aiRequested && task.aiUsed === false)
 
-  // ── Soma total de clips gerados por todas as tarefas concluídas nesta sessão
+  // ── Soma total de arquivos limpos gerados por todas as tarefas concluídas nesta sessão
   const exportedClips = completedTasks.reduce((total, task) => total + task.clipsCreated, 0)
 
   // ── Pega a pasta de saída mais recente: primeiro das tasks, depois do settings, senão null
@@ -80,10 +79,10 @@ export function ClipSplitterPage({
   // ── Texto descritivo que muda conforme o modo selecionado (memorizado para evitar recálculo)
   const modeDescription = useMemo(() => {
     if (settings.mode === 'fixed') {
-      return 'Corta por janela de tempo constante, sem depender da deteccao de pausas.'
+      return 'Mantem o bruto em um arquivo unico, sem dividir em partes curtas.'
     }
 
-    return 'Procura pausas de silencio e tenta encaixar o corte perto do alvo de duracao.'
+    return 'Analisa pausas e comprime silencios mantendo o video inteiro em ordem.'
   }, [settings.mode])
 
   /**
@@ -109,9 +108,9 @@ export function ClipSplitterPage({
         />
         {/* Card que mostra quantos clips já foram exportados nesta sessão */}
         <StatCard
-          hint="Soma dos clips entregues pelos jobs concluidos nesta sessao."
+          hint="Soma dos videos limpos entregues pelos jobs concluidos nesta sessao."
           icon={<Scissors className="h-4 w-4" />}
-          label="Clips exportados"
+          label="Videos limpos"
           value={String(exportedClips)}
         />
         {/* Card que mostra se há jobs na fila ou se está livre */}
@@ -133,14 +132,14 @@ export function ClipSplitterPage({
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Entrada</p>
-                <h3 className="mt-2 text-2xl font-semibold text-text-primary">Video base para o split</h3>
+                <h3 className="mt-2 text-2xl font-semibold text-text-primary">Video base para pre-edicao</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-text-secondary">
-                  Escolha um video longo, ajuste a estrategia de corte e exporte o pacote de clips em lote.
+                  Escolha um video longo, ajuste a reducao de pausas e gere uma versao unica mais rapida de revisar.
                 </p>
               </div>
               {/* Badge colorido indica o modo atual: IA (verde), Silêncio (azul) ou Fixo (amarelo) */}
-              <Badge tone={settings.useAi ? 'green' : settings.mode === 'silence' ? 'blue' : 'yellow'}>
-                {settings.useAi ? 'IA ativa' : settings.mode === 'silence' ? 'Silencio' : 'Fixo'}
+              <Badge tone={settings.mode === 'silence' ? 'blue' : 'yellow'}>
+                {settings.mode === 'silence' ? 'Pre-edicao' : 'Fixo'}
               </Badge>
             </div>
 
@@ -168,7 +167,7 @@ export function ClipSplitterPage({
               </Button>
               {/* Inicia o processo de exportação/split dos clips */}
               <Button onClick={() => void runAction(onStartSplit)} variant="ghost">
-                Exportar clips
+                Gerar pre-edicao
               </Button>
               {/* Só aparece se já existe uma pasta de saída — abre no explorador do SO */}
               {latestOutputDir ? (
@@ -199,14 +198,14 @@ export function ClipSplitterPage({
           {/* ── Card de configuração de corte ──────────────────────────────── */}
           <Card className="space-y-5">
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Regra de split</p>
-              <h3 className="mt-2 text-xl font-semibold text-text-primary">Configuracao de corte</h3>
+              <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Pre-edicao</p>
+              <h3 className="mt-2 text-xl font-semibold text-text-primary">Configuracao de pausas</h3>
             </div>
 
             {/* ── Toggle para ativar/desativar a IA de contexto (Whisper + Gemini) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-text-secondary">
-                <span>Usar IA de contexto</span>
+                <span>Usar contexto transcrito</span>
                 <Toggle checked={settings.useAi} onChange={(checked) => patchSettings({ useAi: checked })} />
               </div>
             </div>
@@ -227,10 +226,28 @@ export function ClipSplitterPage({
             </div>
 
             {/* ── Campos numéricos de configuração (grid 2 colunas) ─────────── */}
+            <div className="space-y-2">
+              <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Intensidade</span>
+              <CustomSelect
+                value={settings.preEditMode}
+                onChange={(value) => patchSettings({ preEditMode: value as typeof settings.preEditMode })}
+                options={[
+                  { value: 'conservative', label: 'Conservative' },
+                  { value: 'balanced', label: 'Balanced' },
+                  { value: 'aggressive', label: 'Aggressive' },
+                ]}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-text-secondary">
+              <span>Salvar JSON de debug</span>
+              <Toggle checked={settings.writeDebugJson} onChange={(checked) => patchSettings({ writeDebugJson: checked })} />
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Duração alvo por clip em segundos (o FFmpeg tenta cortar perto disso) */}
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Alvo por clip (s)</span>
+                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Alvo legado (s)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   max={settings.maxClipDurationSec}
@@ -243,7 +260,7 @@ export function ClipSplitterPage({
 
               {/* Duração mínima — clips menores que isso são descartados ou mesclados */}
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Clip minimo (s)</span>
+                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Min. legado (s)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   min={3}
@@ -256,7 +273,7 @@ export function ClipSplitterPage({
 
               {/* Duração máxima — clips maiores que isso são divididos novamente */}
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Clip maximo (s)</span>
+                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Max. legado (s)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   min={settings.minClipDurationSec + 1}
@@ -298,20 +315,20 @@ export function ClipSplitterPage({
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 font-mono text-sm text-text-primary outline-none transition placeholder:text-text-muted focus:border-white/30"
                   onChange={(event) => setOutputDir(event.target.value.trim() || null)}
-                  placeholder="Opcional: D:\\Projetos\\clips\\episodio-01"
+                  placeholder="Opcional: D:\\Projetos\\preedits\\episodio-01"
                   value={settings.outputDir ?? ''}
                 />
               </label>
             </div>
 
             <p className="text-xs leading-6 text-text-muted">
-              O alvo sempre fica entre o minimo e o maximo. Se voce aumentar o minimo ou reduzir o maximo, o alvo e
-              ajustado automaticamente.
+              A intensidade controla quanto cada pausa sera comprimida. O modo balanced e o padrao para preservar respiro
+              sem deixar o bruto lento.
             </p>
 
             <div className="rounded-xl border border-white/8 bg-black/16 px-4 py-4 text-sm leading-6 text-text-secondary">
-              Marque clips como <span className="text-text-primary">Bom</span>, <span className="text-text-primary">Viral</span> ou <span className="text-text-primary">Fraco</span> apos cada exportacao.
-              O Clip Splitter passa a usar esse historico local para orientar os proximos cortes com IA.
+              O resultado final continua sendo um video longo em ordem original. Use o JSON de debug quando quiser auditar
+              quais pausas foram comprimidas.
             </div>
           </Card>
 
@@ -325,7 +342,7 @@ export function ClipSplitterPage({
               <div>
                 <p className="text-lg font-medium text-text-primary">Como esse motor trabalha</p>
                 <p className="text-sm text-text-secondary">
-                  Exporta um clip por vez e depende de FFmpeg/FFprobe disponiveis na maquina.
+                  Exporta um video limpo unico e depende de FFmpeg/FFprobe disponiveis na maquina.
                 </p>
               </div>
             </div>
@@ -335,22 +352,22 @@ export function ClipSplitterPage({
               {/* Explica o modo fixo */}
               <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
                 <p className="font-medium text-text-primary">Modo fixo</p>
-                <p>Quebra o bruto em janelas constantes quando voce quer ritmo previsivel e rapido.</p>
+                <p>Mantem o bruto em um arquivo unico, sem dividir automaticamente em partes curtas.</p>
               </div>
               {/* Explica o modo silêncio */}
               <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
                 <p className="font-medium text-text-primary">Modo silencio</p>
-                <p>Tenta alinhar o corte nas pausas para evitar quebra seca no meio da fala.</p>
+                <p>Classifica pausas e comprime silencios sem quebrar a ordem original do video.</p>
               </div>
-              {/* Explica a IA de contexto */}
+              {/* Explica o contexto transcrito */}
               <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
-                <p className="font-medium text-text-primary">IA de contexto</p>
-                <p>Quando ativa, usa transcricao com Whisper e Gemini para sugerir partes por contexto narrativo.</p>
+                <p className="font-medium text-text-primary">Contexto transcrito</p>
+                <p>Usa a transcricao para evitar cortes secos depois de conectores como "que", "mas" e "pra".</p>
               </div>
               {/* Explica o comportamento padrão da pasta de saída */}
               <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
                 <p className="font-medium text-text-primary">Saida padrao</p>
-                <p>Sem pasta customizada, o app cria uma pasta irm a do arquivo com sufixo `-clips`.</p>
+                <p>Sem pasta customizada, o app cria uma pasta irma do arquivo com sufixo `_preedit`.</p>
               </div>
             </div>
           </Card>

@@ -72,13 +72,13 @@ export function ClipSplitterTaskItem({ task, onCancel, onOpenOutput, onRetry, on
           <div className="flex flex-wrap items-center gap-2">
             <h4 className="text-lg font-medium text-text-primary">{task.sourceName}</h4>
             <Badge tone={resolveTone(task.status)}>{formatTaskStatus(task.status)}</Badge>
-            <Badge>{task.mode === 'silence' ? 'Silencio' : 'Fixo'}</Badge>
+            <Badge>{task.mode === 'silence' ? 'Pre-edicao' : 'Fixo'}</Badge>
             {task.aiRequested ? (
-              <Badge tone={task.aiUsed === false ? 'yellow' : task.aiUsed ? 'green' : 'neutral'}>
-                {task.aiUsed === false ? 'Fallback local' : task.aiUsed ? 'IA contexto' : 'IA pendente'}
+              <Badge tone={task.aiUsed === false ? 'blue' : task.aiUsed ? 'green' : 'neutral'}>
+                {task.aiUsed === false ? 'Local' : task.aiUsed ? 'IA contexto' : 'Pendente'}
               </Badge>
             ) : (
-              <Badge>Sem IA</Badge>
+              <Badge>Local</Badge>
             )}
           </div>
           <p className="font-mono text-xs text-text-muted">{task.sourcePath}</p>
@@ -127,7 +127,7 @@ export function ClipSplitterTaskItem({ task, onCancel, onOpenOutput, onRetry, on
       {/* Resumo tecnico do job: volume de clips, duracoes e pasta final. */}
       <div className="grid gap-3 text-sm text-text-secondary sm:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-2xl border border-white/8 bg-black/12 px-4 py-3">
-          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Clips</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Saidas</p>
           <p className="mt-1 font-medium text-text-primary">
             {task.totalClips ? `${task.clipsCreated}/${task.totalClips}` : task.clipsCreated || '--'}
           </p>
@@ -157,6 +157,7 @@ export function ClipSplitterTaskItem({ task, onCancel, onOpenOutput, onRetry, on
           </span>
         ) : null}
         {task.fallbackReason ? <span>Fallback: {task.fallbackReason}</span> : null}
+        {task.debugPath ? <span>Debug: {task.debugPath}</span> : null}
         {isActive ? (
           <span className="inline-flex items-center gap-1 text-status-yellow">
             <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
@@ -170,12 +171,12 @@ export function ClipSplitterTaskItem({ task, onCancel, onOpenOutput, onRetry, on
         <div className="space-y-3 rounded-2xl border border-white/8 bg-black/12 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Feedback de aprendizado</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Arquivo de pre-edicao</p>
               <p className="mt-1 text-sm text-text-secondary">
-                Marque os clipes que ficaram fortes ou fracos. Os proximos cortes com IA usam esse historico como memoria local.
+                Video unico em ordem original, pronto para revisao manual.
               </p>
             </div>
-            <Badge tone="yellow">Memoria local</Badge>
+            <Badge tone="blue">Pre-edicao</Badge>
           </div>
 
           <div className="space-y-3">
@@ -186,7 +187,7 @@ export function ClipSplitterTaskItem({ task, onCancel, onOpenOutput, onRetry, on
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium text-text-primary">
-                        Parte {String(clip.index).padStart(2, '0')} • {formatDuration(clip.durationSec)}
+                        Video limpo {String(clip.index).padStart(2, '0')} • {formatDuration(clip.durationSec)}
                       </p>
                       <Badge tone={resolveFeedbackTone(clip.feedbackLabel)}>{formatFeedbackLabel(clip.feedbackLabel)}</Badge>
                     </div>
@@ -199,36 +200,10 @@ export function ClipSplitterTaskItem({ task, onCancel, onOpenOutput, onRetry, on
                     onClick={() => onOpenOutput(clip.filePath)}
                     variant="ghost"
                   >
-                    Revelar clip
+                    Revelar arquivo
                   </Button>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <Button
-                    className={clip.feedbackLabel === 'weak' ? 'border-status-red/40 bg-status-red/18 text-status-red' : ''}
-                    leadingIcon={<ThumbsDown className="h-4 w-4" />}
-                    onClick={() => void onSaveFeedback(task.id, clip, 'weak')}
-                    variant="ghost"
-                  >
-                    Fraco
-                  </Button>
-                  <Button
-                    className={clip.feedbackLabel === 'good' ? 'border-status-blue/40 bg-status-blue/18 text-status-blue' : ''}
-                    leadingIcon={<ThumbsUp className="h-4 w-4" />}
-                    onClick={() => void onSaveFeedback(task.id, clip, 'good')}
-                    variant="ghost"
-                  >
-                    Bom
-                  </Button>
-                  <Button
-                    className={clip.feedbackLabel === 'viral' ? 'border-status-green/40 bg-status-green/18 text-status-green' : ''}
-                    leadingIcon={<Flame className="h-4 w-4" />}
-                    onClick={() => void onSaveFeedback(task.id, clip, 'viral')}
-                    variant="ghost"
-                  >
-                    Viral
-                  </Button>
-                </div>
               </div>
             ))}
           </div>

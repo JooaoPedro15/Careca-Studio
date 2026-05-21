@@ -60,6 +60,50 @@ EPSILON = 0.05
 SILENCE_START_RE = re.compile(r"silence_start:\s*(-?\d+(?:\.\d+)?)")
 SILENCE_END_RE = re.compile(r"silence_end:\s*(-?\d+(?:\.\d+)?)")
 FEEDBACK_LABEL_PRIORITY = {"viral": 3, "good": 2, "weak": 1}
+MID_IDEA_TRAILING_WORDS = {
+    "que",
+    "porque",
+    "entao",
+    "então",
+    "tipo",
+    "ai",
+    "aí",
+    "mas",
+    "e",
+    "pra",
+    "para",
+    "quando",
+    "se",
+    "de",
+    "com",
+}
+PREEDIT_MODE_SETTINGS = {
+    "conservative": {
+        "dead_silence_keep": 0.30,
+        "natural_pause_keep": 0.50,
+        "dramatic_pause_keep": 0.90,
+        "mid_idea_keep": 0.60,
+        "between_ideas_keep": 0.50,
+    },
+    "balanced": {
+        "dead_silence_keep": 0.25,
+        "natural_pause_keep": 0.40,
+        "dramatic_pause_keep": 0.75,
+        "mid_idea_keep": 0.50,
+        "between_ideas_keep": 0.35,
+    },
+    "aggressive": {
+        "dead_silence_keep": 0.15,
+        "natural_pause_keep": 0.30,
+        "dramatic_pause_keep": 0.60,
+        "mid_idea_keep": 0.40,
+        "between_ideas_keep": 0.25,
+    },
+}
+DEFAULT_PREEDIT_MODE = "balanced"
+HARD_SILENCE_DURATION = 1.20
+KEEP_PADDING_BEFORE = 0.08
+KEEP_PADDING_AFTER = 0.12
 
 
 # Mantem as duracoes em um intervalo seguro antes de planejar os cortes.
@@ -149,14 +193,45 @@ def collect_segment_cut_points(
     return dedupe_cut_points(points, total_duration)
 
 
+# Extrai intervalos de pausa entre segmentos transcritos para complementar o silencedetect.
+def collect_segment_pause_ranges(
+    segments: list[dict],
+    total_duration: float,
+    silence_min_duration_sec: float,
+) -> list[dict]:
+    ranges: list[dict] = []
+
+    for index, segment in enumerate(segments):
+        try:
+            pause_start = float(segment["end"])
+            pause_end = float(segments[index + 1]["start"]) if index + 1 < len(segments) else total_duration
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        pause_start = max(0.0, min(total_duration, pause_start))
+        pause_end = max(0.0, min(total_duration, pause_end))
+        pause_duration = max(0.0, pause_end - pause_start)
+        if pause_duration >= silence_min_duration_sec:
+            ranges.append(
+                {
+                    "start": round(pause_start, 3),
+                    "end": round(pause_end, 3),
+                    "duration": round(pause_duration, 3),
+                    "source": "transcript",
+                }
+            )
+
+    return ranges
+
+
 # Usa FFmpeg + silencedetect para encontrar pausas reais no audio original.
-def detect_audio_silence_cut_points(
+def detect_audio_silence_ranges(
     module: Any,
     audio_path: str,
     total_duration: float,
     silence_threshold_db: float,
     silence_min_duration_sec: float,
-) -> list[float]:
+) -> list[dict]:
     command = [
         module.FFMPEG,
         "-hide_banner",
@@ -186,7 +261,7 @@ def detect_audio_silence_cut_points(
     if not combined_output:
         return []
 
-    points: list[float] = []
+    ranges: list[dict] = []
     current_silence_start: float | None = None
 
     for line in combined_output.splitlines():
@@ -201,12 +276,247 @@ def detect_audio_silence_cut_points(
 
         silence_end = float(end_match.group(1))
         if current_silence_start is not None and silence_end >= current_silence_start:
-            points.append((current_silence_start + silence_end) / 2)
-        else:
-            points.append(silence_end)
+            pause_start = max(0.0, min(total_duration, current_silence_start))
+            pause_end = max(0.0, min(total_duration, silence_end))
+            pause_duration = max(0.0, pause_end - pause_start)
+            if pause_duration >= silence_min_duration_sec:
+                ranges.append(
+                    {
+                        "start": round(pause_start, 3),
+                        "end": round(pause_end, 3),
+                        "duration": round(pause_duration, 3),
+                        "source": "audio",
+                    }
+                )
         current_silence_start = None
 
-    return dedupe_cut_points(points, total_duration)
+    if current_silence_start is not None and total_duration > current_silence_start:
+        pause_start = max(0.0, min(total_duration, current_silence_start))
+        pause_end = total_duration
+        pause_duration = max(0.0, pause_end - pause_start)
+        if pause_duration >= silence_min_duration_sec:
+            ranges.append(
+                {
+                    "start": round(pause_start, 3),
+                    "end": round(pause_end, 3),
+                    "duration": round(pause_duration, 3),
+                    "source": "audio",
+                }
+            )
+
+    return merge_pause_ranges(ranges, total_duration)
+
+
+# Mantem a API antiga de pontos de corte para os fluxos legados que ainda usam partes.
+def detect_audio_silence_cut_points(
+    module: Any,
+    audio_path: str,
+    total_duration: float,
+    silence_threshold_db: float,
+    silence_min_duration_sec: float,
+) -> list[float]:
+    ranges = detect_audio_silence_ranges(
+        module,
+        audio_path,
+        total_duration,
+        silence_threshold_db,
+        silence_min_duration_sec,
+    )
+    return dedupe_cut_points([(item["start"] + item["end"]) / 2 for item in ranges], total_duration)
+
+
+# Junta pausas sobrepostas vindas de audio e transcricao para evitar decisoes duplicadas.
+def merge_pause_ranges(ranges: list[dict], total_duration: float, merge_gap_sec: float = 0.12) -> list[dict]:
+    normalized: list[dict] = []
+
+    for raw_range in ranges:
+        try:
+            start = max(0.0, min(total_duration, float(raw_range.get("start", 0.0))))
+            end = max(0.0, min(total_duration, float(raw_range.get("end", total_duration))))
+        except (TypeError, ValueError):
+            continue
+
+        if end - start < 0.1:
+            continue
+
+        normalized.append(
+            {
+                "start": round(start, 3),
+                "end": round(end, 3),
+                "duration": round(end - start, 3),
+                "source": str(raw_range.get("source", "unknown")),
+            }
+        )
+
+    merged: list[dict] = []
+    for item in sorted(normalized, key=lambda value: value["start"]):
+        if not merged or item["start"] > merged[-1]["end"] + merge_gap_sec:
+            merged.append(item)
+            continue
+
+        merged[-1]["end"] = round(max(merged[-1]["end"], item["end"]), 3)
+        merged[-1]["duration"] = round(merged[-1]["end"] - merged[-1]["start"], 3)
+        sources = set(str(merged[-1].get("source", "")).split("+"))
+        sources.add(str(item.get("source", "unknown")))
+        merged[-1]["source"] = "+".join(sorted(source for source in sources if source))
+
+    return merged
+
+
+# Normaliza uma palavra de contexto para comparar conectores fracos sem alterar a transcricao.
+def normalize_context_word(word: str) -> str:
+    return re.sub(r"[^\w\s]", "", word).strip().lower()
+
+
+def last_context_word(text: str) -> str:
+    words = [normalize_context_word(word) for word in text.split()]
+    words = [word for word in words if word]
+    return words[-1] if words else ""
+
+
+# Encontra a fala imediatamente antes/depois de uma pausa para decidir se ela carrega sentido.
+def find_pause_context(segments: list[dict], pause_start: float, pause_end: float) -> dict:
+    before: dict | None = None
+    after: dict | None = None
+
+    for segment in segments:
+        try:
+            segment_start = float(segment.get("start", 0.0))
+            segment_end = float(segment.get("end", 0.0))
+        except (TypeError, ValueError):
+            continue
+
+        if segment_end <= pause_start + 0.2 and (before is None or segment_end > float(before.get("end", 0.0))):
+            before = segment
+
+        if segment_start >= pause_end - 0.2 and (after is None or segment_start < float(after.get("start", 10**9))):
+            after = segment
+
+    before_text = str(before.get("text", "")).strip() if before else ""
+    after_text = str(after.get("text", "")).strip() if after else ""
+
+    return {
+        "before_text": before_text,
+        "after_text": after_text,
+        "before_word": last_context_word(before_text),
+        "after_word": normalize_context_word(after_text.split()[0]) if after_text.split() else "",
+    }
+
+
+# Classifica a pausa em tipos editoriais para evitar transformar todo silencio em corte seco.
+def classify_pause(pause: dict, segments: list[dict]) -> tuple[str, str]:
+    start = float(pause["start"])
+    end = float(pause["end"])
+    duration = float(pause.get("duration", end - start))
+    context = find_pause_context(segments, start, end)
+    before_word = context["before_word"]
+    before_text = context["before_text"]
+    after_text = context["after_text"]
+
+    if before_word in MID_IDEA_TRAILING_WORDS:
+        return "mid_idea_pause", f"pause follows connector '{before_word}' and likely completes the same idea"
+
+    if duration < HARD_SILENCE_DURATION:
+        return "breathing_pause", "short natural pause between words or phrases"
+
+    if duration <= 2.2 and before_text and after_text:
+        return "dramatic_pause", "moderate pause with speech on both sides, useful for timing or reaction"
+
+    if before_text and after_text and duration <= 2.8:
+        return "between_ideas", "pause between nearby spoken ideas"
+
+    return "dead_silence", "long silence with no useful context"
+
+
+# Decide se cada pausa deve ser mantida, comprimida ou quase removida conforme a intensidade escolhida.
+def build_pause_edit_decisions(pauses: list[dict], segments: list[dict], mode: str = DEFAULT_PREEDIT_MODE) -> list[dict]:
+    settings = PREEDIT_MODE_SETTINGS.get(mode, PREEDIT_MODE_SETTINGS[DEFAULT_PREEDIT_MODE])
+    keep_by_type = {
+        "dead_silence": settings["dead_silence_keep"],
+        "breathing_pause": settings["natural_pause_keep"],
+        "dramatic_pause": settings["dramatic_pause_keep"],
+        "mid_idea_pause": settings["mid_idea_keep"],
+        "between_ideas": settings["between_ideas_keep"],
+    }
+    decisions: list[dict] = []
+
+    for pause in sorted(pauses, key=lambda item: float(item.get("start", 0.0))):
+        try:
+            start = round(float(pause["start"]), 3)
+            end = round(float(pause["end"]), 3)
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        duration = round(max(0.0, end - start), 3)
+        if duration < 0.1:
+            continue
+
+        pause_type, reason = classify_pause({"start": start, "end": end, "duration": duration}, segments)
+        keep_duration = min(duration, float(keep_by_type[pause_type]))
+        if mode == "aggressive" and pause_type == "dead_silence" and duration >= 4.0:
+            action = "remove"
+            keep_duration = 0.0
+        else:
+            action = "keep" if duration <= keep_duration + EPSILON else "compress"
+
+        decisions.append(
+            {
+                "start": start,
+                "end": end,
+                "duration": duration,
+                "type": pause_type,
+                "action": action,
+                "keep_duration": round(keep_duration, 3),
+                "reason": reason,
+            }
+        )
+
+    return decisions
+
+
+# Transforma decisoes de pausa em trechos preservados, mantendo a ordem original do video inteiro.
+def build_preedit_keep_ranges(
+    total_duration: float,
+    decisions: list[dict],
+    keep_padding_before: float = KEEP_PADDING_BEFORE,
+    keep_padding_after: float = KEEP_PADDING_AFTER,
+) -> list[dict]:
+    ranges: list[dict] = []
+    cursor = 0.0
+
+    for decision in sorted(decisions, key=lambda item: float(item.get("start", 0.0))):
+        if decision.get("action") == "keep":
+            continue
+
+        try:
+            pause_start = max(0.0, min(total_duration, float(decision["start"])))
+            pause_end = max(0.0, min(total_duration, float(decision["end"])))
+            keep_duration = max(0.0, float(decision.get("keep_duration", 0.0)))
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        pause_duration = pause_end - pause_start
+        if pause_duration <= 0.1:
+            continue
+
+        total_keep = min(pause_duration, max(keep_duration, min(pause_duration, keep_padding_before + keep_padding_after)))
+        keep_before = min(total_keep, max(keep_padding_before, total_keep * 0.45))
+        keep_after = min(pause_duration - keep_before, max(keep_padding_after, total_keep - keep_before))
+        removed_start = round(pause_start + keep_before, 3)
+        removed_end = round(pause_end - keep_after, 3)
+
+        if removed_end <= removed_start + EPSILON:
+            continue
+
+        if removed_start > cursor + EPSILON:
+            ranges.append({"start": round(cursor, 3), "end": removed_start})
+
+        cursor = max(cursor, removed_end)
+
+    if cursor < total_duration - EPSILON:
+        ranges.append({"start": round(cursor, 3), "end": round(total_duration, 3)})
+
+    return [item for item in ranges if item["end"] - item["start"] > 0.05]
 
 
 # Escolhe o melhor corte dentro da janela atual priorizando IA, pausas naturais e limites.
@@ -367,6 +677,33 @@ def build_transcript_snippet(segments: list[dict], start_sec: float, end_sec: fl
 
     snippet = truncate_text(" ".join(collected), limit)
     return snippet or "Sem trecho de fala identificado."
+
+
+# Monta o item unico que representa o video limpo entregue pela pre-edicao.
+def build_preedit_export_payload(
+    source_path: str,
+    output_file: str,
+    source_duration_sec: float,
+    edited_duration_sec: float,
+    decisions_count: int,
+) -> dict:
+    output_path = Path(output_file)
+    clip_id = hashlib.sha1(f"{Path(source_path).resolve()}|preedit|{output_path}".encode("utf-8")).hexdigest()[:16]
+    removed_sec = max(0.0, float(source_duration_sec) - float(edited_duration_sec))
+
+    return {
+        "clipId": clip_id,
+        "index": 1,
+        "filePath": str(output_path),
+        "fileName": output_path.name,
+        "startSec": 0.0,
+        "endSec": round(float(edited_duration_sec), 3),
+        "durationSec": round(float(edited_duration_sec), 3),
+        "reason": f"Pre-edicao unica com {decisions_count} pausa(s) analisada(s); {removed_sec:.1f}s removidos.",
+        "transcriptSnippet": "Video limpo em ordem original para revisao manual.",
+        "feedbackLabel": None,
+        "feedbackUpdatedAt": None,
+    }
 
 
 # Carrega o historico de feedback salvo pelo usuario e indexa por clipId.
@@ -604,24 +941,22 @@ def analyze_cut_points_with_feedback(
         f"3/4 Definindo cortes com Gemini + memoria local ({len(selected_examples)} exemplo(s) aproveitado(s))..."
     )
 
-    prompt = f"""Voce e um editor especializado em reels, shorts e TikTok.
+    prompt = f"""Voce e um editor especializado em pre-edicao de videos longos.
 
 TAREFA:
-Escolha PONTOS DE CORTE preferenciais para um video longo. O software local depois vai montar as partes finais.
+Escolha pontos seguros para encurtar pausas de um video longo. O software local depois preserva a ordem original.
 
-OBJETIVO DE PERFORMANCE:
-- priorizar ganchos fortes
-- terminar logo apos reacao, revelacao, tensao, pergunta ou payoff parcial
-- evitar trechos mornos, introducoes longas e finais sem curiosidade
-- distribuir bons pontos ao longo do video inteiro, nao apenas no comeco
+OBJETIVO DE PRE-EDICAO:
+- reduzir espera morta
+- preservar pausas naturais ou dramaticas
+- nao transformar o bruto em shorts automaticamente
+- manter a ordem do video inteiro
 
 REGRAS FIXAS:
-- cada clip final ficara entre {min_duration_sec:.0f}s e {max_duration_sec:.0f}s
-- a duracao alvo e {target_duration_sec:.0f}s
 - prefira pausas naturais da fala
 - nao escolha ponto no meio de uma frase importante
-- use os exemplos VIRAL/BOM como padrao do que imitar
-- use os exemplos WEAK como padrao do que evitar
+- use exemplos positivos como padrao de ritmo a preservar
+- use exemplos fracos como padrao de corte seco a evitar
 
 MEMORIA LOCAL DE PERFORMANCE:
 {feedback_digest}
@@ -742,6 +1077,67 @@ def export_parts(module: Any, video_path: str, output_dir: Path, base_name: str,
         )
 
 
+# Cria o comando FFmpeg que concatena os trechos preservados em um unico video limpo.
+def build_preedit_ffmpeg_command(module: Any, video_path: str, output_file: Path, keep_ranges: list[dict]) -> list[str]:
+    filters: list[str] = []
+    labels: list[str] = []
+
+    for index, keep_range in enumerate(keep_ranges):
+        start = float(keep_range["start"])
+        end = float(keep_range["end"])
+        filters.append(f"[0:v]trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS[v{index}]")
+        filters.append(f"[0:a]atrim=start={start:.3f}:end={end:.3f},asetpts=PTS-STARTPTS[a{index}]")
+        labels.append(f"[v{index}][a{index}]")
+
+    filters.append(f"{''.join(labels)}concat=n={len(keep_ranges)}:v=1:a=1[outv][outa]")
+
+    return [
+        module.FFMPEG,
+        "-y",
+        "-i",
+        video_path,
+        "-filter_complex",
+        ";".join(filters),
+        "-map",
+        "[outv]",
+        "-map",
+        "[outa]",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "18",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-movflags",
+        "+faststart",
+        str(output_file),
+    ]
+
+
+# Exporta a pre-edicao como um arquivo unico, preservando a ordem original dos trechos mantidos.
+def export_preedited_video(module: Any, video_path: str, output_file: Path, keep_ranges: list[dict]) -> None:
+    if not keep_ranges:
+        raise RuntimeError("Nenhum trecho valido para exportar a pre-edicao.")
+
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    module.executar_ffmpeg_com_progresso(
+        build_preedit_ffmpeg_command(module, video_path, output_file, keep_ranges),
+        "Exportando pre-edicao",
+    )
+
+
+# Salva um JSON opcional com as decisoes editoriais tomadas para cada pausa detectada.
+def write_debug_decisions(output_file: Path, decisions: list[dict]) -> str:
+    debug_path = output_file.with_suffix(".debug.json")
+    debug_path.parent.mkdir(parents=True, exist_ok=True)
+    debug_path.write_text(json.dumps(decisions, ensure_ascii=False, indent=2), encoding="utf-8")
+    return str(debug_path)
+
+
 # Captura stdout de funcoes do modulo externo sem perder os logs para analise.
 def run_and_capture_stdout(fn: Any, *args: Any, **kwargs: Any) -> tuple[Any, str]:
     buffer = io.StringIO()
@@ -767,12 +1163,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("-o", "--output", default=None)
     parser.add_argument("--project-root", default=None)
     parser.add_argument("--mode", choices=["fixed", "silence"], default="silence")
+    parser.add_argument("--preedit-mode", choices=["conservative", "balanced", "aggressive"], default=DEFAULT_PREEDIT_MODE)
     parser.add_argument("--target-duration", type=float, default=35.0)
     parser.add_argument("--min-duration", type=float, default=20.0)
     parser.add_argument("--max-duration", type=float, default=50.0)
     parser.add_argument("--silence-threshold-db", type=float, default=-35.0)
     parser.add_argument("--silence-min-duration", type=float, default=0.45)
     parser.add_argument("--feedback-file", default=None)
+    parser.add_argument("--write-debug-json", action="store_true")
     parser.add_argument("--cpu", action="store_true")
     parser.add_argument("--no-ai", action="store_true")
     return parser.parse_args()
@@ -797,7 +1195,7 @@ def main() -> int:
         emit("error", "error", "bootstrap", "Falha ao carregar engine do Clip-Splitter.", error=str(error))
         return 1
 
-    output_dir = Path(args.output) if args.output else input_file.parent / f"{input_file.stem}_partes"
+    output_dir = Path(args.output) if args.output else input_file.parent / f"{input_file.stem}_preedit"
     temp_dir = input_file.parent
 
     try:
@@ -811,9 +1209,9 @@ def main() -> int:
 
         module.MIN_PART_DURATION = max(5, int(math.floor(min_duration_sec)))
         module.MAX_PART_DURATION = max(module.MIN_PART_DURATION + 1, int(math.ceil(max_duration_sec)))
-        ai_requested = not args.no_ai
-        ai_used = False if args.no_ai else None
-        fallback_reason: str | None = None
+        ai_requested = False
+        ai_used = False
+        fallback_reason: str | None = "Pre-edicao usa heuristicas locais de pausa; nao escolhe shorts automaticamente."
 
         emit(
             "status",
@@ -861,138 +1259,66 @@ def main() -> int:
             transcriptionComputeType=whisper_compute,
         )
         segments = module.transcrever(audio_path)
-        feedback_examples, feedback_by_id = load_feedback_examples(args.feedback_file)
-        silence_cut_points = dedupe_cut_points(
-            detect_audio_silence_cut_points(
-                module,
-                audio_path,
-                total_duration,
-                silence_threshold_db,
-                silence_min_duration_sec,
-            )
-            + collect_segment_cut_points(segments, total_duration, silence_min_duration_sec),
+        audio_pause_ranges = detect_audio_silence_ranges(
+            module,
+            audio_path,
             total_duration,
+            silence_threshold_db,
+            silence_min_duration_sec,
         )
+        transcript_pause_ranges = collect_segment_pause_ranges(segments, total_duration, silence_min_duration_sec)
+        pause_ranges = merge_pause_ranges(audio_pause_ranges + transcript_pause_ranges, total_duration)
+
+        if args.mode == "fixed":
+            # Modo fixo agora preserva o bruto em arquivo unico, sem gerar partes curtas.
+            pause_decisions: list[dict] = []
+            keep_ranges = [{"start": 0.0, "end": round(total_duration, 3)}]
+        else:
+            # Modo silencio virou pre-edicao: cada pausa vira uma decisao de manter, comprimir ou reduzir.
+            pause_decisions = build_pause_edit_decisions(pause_ranges, segments, mode=args.preedit_mode)
+            keep_ranges = build_preedit_keep_ranges(total_duration, pause_decisions)
+
+        edited_duration_sec = round(sum(item["end"] - item["start"] for item in keep_ranges), 3)
+        output_file = output_dir / f"{input_file.stem}_preedit.mp4"
+        debug_path = write_debug_decisions(output_file, pause_decisions) if args.write_debug_json else None
+        clip_exports = [
+            build_preedit_export_payload(
+                str(input_file),
+                str(output_file),
+                total_duration,
+                edited_duration_sec,
+                len(pause_decisions),
+            )
+        ]
 
         emit(
             "status",
             "processing",
             "planning",
-            "Definindo melhores cortes...",
+            f"{len(pause_decisions)} pausas analisadas para pre-edicao.",
             progress=56,
             outputDir=str(output_dir),
+            debugPath=debug_path,
             sourceDurationSec=total_duration,
             aiRequested=ai_requested,
             aiUsed=ai_used,
             fallbackReason=fallback_reason,
         )
 
-        if args.mode == "fixed":
-            # No modo fixo a IA nao escolhe contexto; o corte segue apenas a janela configurada.
-            if ai_requested:
-                ai_used = False
-                fallback_reason = "Modo fixo exporta por janela constante e nao usa IA de contexto."
-            parts = build_fixed_parts(
-                total_duration,
-                target_duration_sec,
-                min_duration_sec,
-                max_duration_sec,
-            )
-        elif args.no_ai:
-            # Sem IA, usa somente heuristicas locais baseadas em silencio e segmentos.
-            fallback_reason = "IA desativada manualmente nas configuracoes."
-            parts = build_silence_parts(
-                segments,
-                total_duration,
-                target_duration_sec,
-                min_duration_sec,
-                max_duration_sec,
-                silence_min_duration_sec,
-                silence_cut_points,
-            )
-        else:
-            # Com IA ativa, tenta primeiro usar exemplos locais e depois cai para a analise externa padrao.
-            ai_cut_points: list[float] = []
-            used_feedback_memory = False
-
-            if feedback_examples:
-                try:
-                    ai_cut_points = analyze_cut_points_with_feedback(
-                        module,
-                        segments,
-                        total_duration,
-                        target_duration_sec,
-                        min_duration_sec,
-                        max_duration_sec,
-                        silence_cut_points,
-                        feedback_examples,
-                    )
-                    if ai_cut_points:
-                        ai_used = True
-                        used_feedback_memory = True
-                except Exception as feedback_error:
-                    print(f"   Aviso: memoria local nao conseguiu orientar os cortes ({feedback_error})", flush=True)
-
-            if not ai_cut_points:
-                # Se nao houver memoria local suficiente, usa a analise original do projeto externo.
-                raw_parts, analysis_logs = run_and_capture_stdout(module.analisar_cortes, segments, total_duration)
-                normalized_logs = analysis_logs.lower()
-
-                if "usando corte por silencio" in normalized_logs or "gemini indisponivel" in normalized_logs:
-                    ai_used = False
-                    if "gemini indisponivel" in normalized_logs:
-                        fallback_reason = "Gemini indisponivel ou sem chave configurada."
-                    elif "aviso:" in normalized_logs:
-                        fallback_reason = "Gemini falhou e o motor caiu para corte local."
-                    else:
-                        fallback_reason = "Motor caiu para corte local por indisponibilidade da IA."
-                elif "partes definidas" in normalized_logs:
-                    ai_used = True
-
-                for line in analysis_logs.splitlines():
-                    cleaned = line.strip()
-                    if cleaned:
-                        print(cleaned, flush=True)
-
-                sanitized_ai_parts = sanitize_parts(raw_parts, total_duration)
-                if ai_used is None and sanitized_ai_parts:
-                    ai_used = True
-                if ai_used:
-                    ai_cut_points = extract_preferred_cut_points(sanitized_ai_parts, total_duration)
-
-            if used_feedback_memory and not fallback_reason:
-                fallback_reason = None
-
-            parts = build_contiguous_parts(
-                total_duration,
-                target_duration_sec,
-                min_duration_sec,
-                max_duration_sec,
-                candidate_cut_points=silence_cut_points,
-                preferred_cut_points=ai_cut_points,
-            )
-
-        if not parts:
-            raise RuntimeError("Nenhuma parte valida foi gerada pela analise.")
-
-        clip_exports = build_clip_exports(
-            str(input_file),
-            output_dir,
-            input_file.stem,
-            parts,
-            segments,
-            feedback_by_id,
-        )
+        if not keep_ranges:
+            raise RuntimeError("Nenhum trecho valido foi gerado para a pre-edicao.")
 
         emit(
             "status",
             "processing",
             "planning-done",
-            f"{len(parts)} partes planejadas para exportacao.",
+            "Video unico planejado para pre-edicao.",
             progress=70,
             outputDir=str(output_dir),
+            debugPath=debug_path,
             sourceDurationSec=total_duration,
-            totalClips=len(parts),
+            totalClips=1,
+            clipsCreated=0,
             aiRequested=ai_requested,
             aiUsed=ai_used,
             fallbackReason=fallback_reason,
@@ -1000,42 +1326,25 @@ def main() -> int:
             transcriptionComputeType=whisper_compute,
         )
 
-        for index, part in enumerate(parts, start=1):
-            emit(
-                "status",
-                "processing",
-                "exporting",
-                f"Exportando parte {index}/{len(parts)}...",
-                progress=min(96, 72 + math.floor((index - 1) / len(parts) * 22)),
-                outputDir=str(output_dir),
-                sourceDurationSec=total_duration,
-                totalClips=len(parts),
-                clipsCreated=index - 1,
-                aiRequested=ai_requested,
-                aiUsed=ai_used,
-                fallbackReason=fallback_reason,
-                transcriptionDevice=whisper_device,
-                transcriptionComputeType=whisper_compute,
-            )
+        emit(
+            "status",
+            "processing",
+            "exporting",
+            "Exportando video limpo unico...",
+            progress=82,
+            outputDir=str(output_dir),
+            debugPath=debug_path,
+            sourceDurationSec=total_duration,
+            totalClips=1,
+            clipsCreated=0,
+            aiRequested=ai_requested,
+            aiUsed=ai_used,
+            fallbackReason=fallback_reason,
+            transcriptionDevice=whisper_device,
+            transcriptionComputeType=whisper_compute,
+        )
 
-            export_parts(module, str(input_file), output_dir, input_file.stem, [part])
-
-            emit(
-                "status",
-                "processing",
-                "exporting",
-                f"Parte {index}/{len(parts)} concluida.",
-                progress=min(96, 72 + math.floor(index / len(parts) * 22)),
-                outputDir=str(output_dir),
-                sourceDurationSec=total_duration,
-                totalClips=len(parts),
-                clipsCreated=index,
-                aiRequested=ai_requested,
-                aiUsed=ai_used,
-                fallbackReason=fallback_reason,
-                transcriptionDevice=whisper_device,
-                transcriptionComputeType=whisper_compute,
-            )
+        export_preedited_video(module, str(input_file), output_file, keep_ranges)
 
         try:
             Path(audio_path).unlink(missing_ok=True)
@@ -1046,12 +1355,13 @@ def main() -> int:
             "done",
             "completed",
             "done",
-            f"{len(parts)} partes exportadas com sucesso.",
+            "Pre-edicao exportada com sucesso.",
             progress=100,
             outputDir=str(output_dir),
+            debugPath=debug_path,
             sourceDurationSec=total_duration,
-            totalClips=len(parts),
-            clipsCreated=len(parts),
+            totalClips=1,
+            clipsCreated=1,
             durationSec=round(time.time() - started_at, 1),
             aiRequested=ai_requested,
             aiUsed=ai_used,
@@ -1069,7 +1379,7 @@ def main() -> int:
             "Falha ao processar o clip splitter.",
             error=str(error),
             outputDir=str(output_dir),
-            aiRequested=not args.no_ai,
+            aiRequested=False,
             transcriptionDevice=whisper_device,
             transcriptionComputeType=whisper_compute,
         )

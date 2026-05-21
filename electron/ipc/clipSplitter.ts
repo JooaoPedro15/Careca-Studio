@@ -10,11 +10,14 @@ import { getClipFeedbackFilePath, saveClipFeedbackEntry, type ClipFeedbackLabel 
 
 // Tipos locais que descrevem os jobs do clip splitter enquanto rodam no processo principal.
 type ClipSplitterMode = 'fixed' | 'silence'
+type ClipSplitterPreEditMode = 'conservative' | 'balanced' | 'aggressive'
 type ClipSplitterStatus = 'queued' | 'preparing' | 'processing' | 'completed' | 'error' | 'cancelled'
 
 interface ClipSplitterTaskOptions {
   useAi: boolean
   mode: ClipSplitterMode
+  preEditMode: ClipSplitterPreEditMode
+  writeDebugJson: boolean
   targetDurationSec: number
   minClipDurationSec: number
   maxClipDurationSec: number
@@ -51,6 +54,7 @@ interface ClipSplitterEventPayload {
   progress: number | null
   queuePosition?: number
   outputDir?: string | null
+  debugPath?: string | null
   clipsCreated?: number
   totalClips?: number
   sourceDurationSec?: number
@@ -74,6 +78,7 @@ interface RunnerStatusEvent {
   fallbackReason?: string
   progress?: number | null
   outputDir?: string | null
+  debugPath?: string | null
   clipsCreated?: number
   totalClips?: number
   sourceDurationSec?: number
@@ -91,6 +96,7 @@ interface RunnerDoneEvent {
   fallbackReason?: string
   progress?: number | null
   outputDir?: string | null
+  debugPath?: string | null
   clipsCreated?: number
   totalClips?: number
   sourceDurationSec?: number
@@ -109,6 +115,7 @@ interface RunnerErrorEvent {
   fallbackReason?: string
   progress?: number | null
   outputDir?: string | null
+  debugPath?: string | null
   clipsCreated?: number
   totalClips?: number
   sourceDurationSec?: number
@@ -128,6 +135,7 @@ interface ClipSplitterTaskRecord {
   fallbackReason: string | null
   status: ClipSplitterStatus
   outputDir: string | null
+  debugPath: string | null
   createdAt: number
   startedAt: number | null
   completedAt: number | null
@@ -150,8 +158,10 @@ const queue: string[] = []
 let activeTaskId: string | null = null
 
 const defaultOptions: ClipSplitterTaskOptions = {
-  useAi: true,
+  useAi: false,
   mode: 'silence',
+  preEditMode: 'balanced',
+  writeDebugJson: false,
   targetDurationSec: 35,
   minClipDurationSec: 20,
   maxClipDurationSec: 50,
@@ -175,8 +185,13 @@ function normalizeOptions(options: Partial<ClipSplitterTaskOptions> | undefined)
   return {
     ...defaultOptions,
     ...options,
-    useAi: options?.useAi ?? defaultOptions.useAi,
+    useAi: false,
     mode: options?.mode === 'fixed' ? 'fixed' : 'silence',
+    preEditMode:
+      options?.preEditMode === 'conservative' || options?.preEditMode === 'aggressive'
+        ? options.preEditMode
+        : defaultOptions.preEditMode,
+    writeDebugJson: options?.writeDebugJson ?? defaultOptions.writeDebugJson,
     targetDurationSec,
     minClipDurationSec,
     maxClipDurationSec,
@@ -212,6 +227,7 @@ function toPayload(task: ClipSplitterTaskRecord, overrides: Partial<ClipSplitter
     message: task.lastMessage,
     progress: null,
     outputDir: task.outputDir,
+    debugPath: task.debugPath,
     clipsCreated: task.clipsCreated,
     totalClips: task.totalClips ?? undefined,
     sourceDurationSec: task.sourceDurationSec ?? undefined,
@@ -350,6 +366,8 @@ function buildProcessArgs(serviceScriptPath: string, clipSplitterRoot: string, t
     clipSplitterRoot,
     '--mode',
     task.options.mode,
+    '--preedit-mode',
+    task.options.preEditMode,
     '--target-duration',
     String(task.options.targetDurationSec),
     '--min-duration',
@@ -370,6 +388,10 @@ function buildProcessArgs(serviceScriptPath: string, clipSplitterRoot: string, t
 
   if (!task.options.useAi) {
     args.push('--no-ai')
+  }
+
+  if (task.options.writeDebugJson) {
+    args.push('--write-debug-json')
   }
 
   if (task.options.outputDir) {
@@ -452,6 +474,10 @@ function applyRunnerEvent(task: ClipSplitterTaskRecord, event: RunnerEvent) {
     task.outputDir = event.outputDir
   }
 
+  if (typeof event.debugPath === 'string') {
+    task.debugPath = event.debugPath
+  }
+
   if (typeof event.sourceDurationSec === 'number') {
     task.sourceDurationSec = event.sourceDurationSec
   }
@@ -476,6 +502,7 @@ function applyRunnerEvent(task: ClipSplitterTaskRecord, event: RunnerEvent) {
       message: event.message,
       progress: event.progress ?? null,
       outputDir: task.outputDir,
+      debugPath: task.debugPath,
       clipsCreated: task.clipsCreated,
       totalClips: task.totalClips ?? undefined,
       sourceDurationSec: task.sourceDurationSec ?? undefined,
@@ -729,10 +756,11 @@ export function registerClipSplitterHandlers() {
       sourceName,
       options: resolvedOptions,
       useCpu: false,
-      aiUsed: resolvedOptions.useAi ? null : false,
-      fallbackReason: resolvedOptions.useAi ? null : 'IA desativada manualmente nas configuracoes.',
+      aiUsed: false,
+      fallbackReason: 'Pre-edicao local de pausas.',
       status: 'queued',
       outputDir: resolvedOptions.outputDir ?? null,
+      debugPath: null,
       createdAt: Date.now(),
       startedAt: null,
       completedAt: null,

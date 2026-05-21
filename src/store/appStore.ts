@@ -34,8 +34,10 @@ const defaultSubtitleSettings: SubtitleTaskOptions = {
 
 // Configuracao inicial do Clip Splitter com o modo padrao da ferramenta.
 const defaultClipSplitterSettings: ClipSplitterOptions = {
-  useAi: true,
+  useAi: false,
   mode: 'silence',
+  preEditMode: 'balanced',
+  writeDebugJson: false,
   targetDurationSec: 35,
   minClipDurationSec: 20,
   maxClipDurationSec: 50,
@@ -145,6 +147,7 @@ function upsertClipSplitterTask(
     progress: event.progress ?? currentTask?.progress ?? null,
     queuePosition: event.queuePosition ?? currentTask?.queuePosition ?? null,
     outputDir: event.outputDir ?? currentTask?.outputDir ?? null,
+    debugPath: event.debugPath ?? currentTask?.debugPath ?? null,
     clipsCreated: event.clipsCreated ?? currentTask?.clipsCreated ?? 0,
     totalClips: event.totalClips ?? currentTask?.totalClips ?? null,
     sourceDurationSec: event.sourceDurationSec ?? currentTask?.sourceDurationSec ?? null,
