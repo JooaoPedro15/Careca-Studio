@@ -5,12 +5,61 @@ import importlib.util
 import io
 import json
 import math
+import os
 import re
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Any
+
+
+# Limites para evitar [WinError 206] e MAX_PATH (260) no Windows.
+MAX_OUTPUT_STEM_CHARS = 60
+WINDOWS_PATH_WARN_CHARS = 240
+
+
+def safe_short_stem(stem: str, limit: int = MAX_OUTPUT_STEM_CHARS) -> str:
+    cleaned = re.sub(r"\s+", "_", stem.strip())
+    cleaned = re.sub(r"[^A-Za-z0-9_.\-]", "", cleaned)
+    return cleaned[:limit] or "video"
+
+
+def resolve_short_temp_dir(input_file: Path) -> Path:
+    env_dir = os.environ.get("CARECA_CS_TEMP")
+    candidates: list[Path] = []
+    if env_dir:
+        candidates.append(Path(env_dir))
+    if sys.platform == "win32":
+        drive = input_file.drive or "C:"
+        candidates.append(Path(f"{drive}\\cs_tmp"))
+        candidates.append(Path("C:\\cs_tmp"))
+    else:
+        candidates.append(Path("/tmp/cs_tmp"))
+    candidates.append(input_file.parent)
+
+    for candidate in candidates:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            probe = candidate / ".cs_write_probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            return candidate
+        except OSError:
+            continue
+    return input_file.parent
+
+
+def assert_safe_path_lengths(**paths: Path) -> None:
+    offenders = {label: str(path) for label, path in paths.items() if len(str(path)) > WINDOWS_PATH_WARN_CHARS}
+    if not offenders:
+        return
+    details = "\n".join(f"  - {label}: {len(value)} chars -> {value}" for label, value in offenders.items())
+    raise RuntimeError(
+        "Caminho(s) muito longo(s) para Windows (limite seguro ~240 chars). "
+        "Use pasta curta como D:\\cs\\ no input/output ou defina CARECA_CS_TEMP para uma pasta curta.\n"
+        f"{details}"
+    )
 
 
 # Emite eventos JSON padronizados no stdout para o processo principal do Electron.
@@ -1207,12 +1256,15 @@ def extract_analysis_audio_track(module: Any, video_path: str, output_path: str,
 
 
 # Cria o comando FFmpeg que concatena os trechos preservados em um unico video limpo.
+# Quando filter_script_path e informado, o filtergraph vai para arquivo e usamos
+# -filter_complex_script, evitando estourar o limite de linha de comando do Windows (~32K).
 def build_preedit_ffmpeg_command(
     module: Any,
     video_path: str,
     output_file: Path,
     keep_ranges: list[dict],
     audio_stream_count: int = 1,
+    filter_script_path: Path | None = None,
 ) -> list[str]:
     filters: list[str] = []
     video_labels: list[str] = []
@@ -1241,13 +1293,20 @@ def build_preedit_ffmpeg_command(
     for output_label in audio_output_labels:
         map_args.extend(["-map", output_label])
 
+    graph = ";".join(filters)
+    if filter_script_path is not None:
+        filter_script_path.parent.mkdir(parents=True, exist_ok=True)
+        filter_script_path.write_text(graph, encoding="utf-8")
+        filter_args = ["-filter_complex_script", str(filter_script_path)]
+    else:
+        filter_args = ["-filter_complex", graph]
+
     return [
         module.FFMPEG,
         "-y",
         "-i",
         video_path,
-        "-filter_complex",
-        ";".join(filters),
+        *filter_args,
         *map_args,
         "-c:v",
         "libx264",
@@ -1272,13 +1331,21 @@ def export_preedited_video(
     output_file: Path,
     keep_ranges: list[dict],
     audio_stream_count: int,
+    filter_script_path: Path | None = None,
 ) -> None:
     if not keep_ranges:
         raise RuntimeError("Nenhum trecho valido para exportar a pre-edicao.")
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     module.executar_ffmpeg_com_progresso(
-        build_preedit_ffmpeg_command(module, video_path, output_file, keep_ranges, audio_stream_count=audio_stream_count),
+        build_preedit_ffmpeg_command(
+            module,
+            video_path,
+            output_file,
+            keep_ranges,
+            audio_stream_count=audio_stream_count,
+            filter_script_path=filter_script_path,
+        ),
         "Exportando pre-edicao",
     )
 
@@ -1349,8 +1416,32 @@ def main() -> int:
         emit("error", "error", "bootstrap", "Falha ao carregar engine do Clip-Splitter.", error=str(error))
         return 1
 
-    output_dir = Path(args.output) if args.output else input_file.parent / f"{input_file.stem}_preedit"
-    temp_dir = input_file.parent
+    safe_stem = safe_short_stem(input_file.stem)
+    output_dir = Path(args.output) if args.output else input_file.parent / f"{safe_stem}_preedit"
+    temp_dir = resolve_short_temp_dir(input_file)
+    filter_script_path = temp_dir / "preedit_filters.txt"
+    temp_audio_path = temp_dir / "audio_temp.wav"
+
+    print(
+        f"[debug] input_path ({len(str(input_file))} chars): {input_file}\n"
+        f"[debug] output_dir ({len(str(output_dir))} chars): {output_dir}\n"
+        f"[debug] temp_dir ({len(str(temp_dir))} chars): {temp_dir}\n"
+        f"[debug] filter_script_path: {filter_script_path}\n"
+        f"[debug] temp_audio_path: {temp_audio_path}",
+        flush=True,
+    )
+
+    try:
+        assert_safe_path_lengths(
+            input_path=input_file,
+            output_dir=output_dir,
+            temp_dir=temp_dir,
+            temp_audio_path=temp_audio_path,
+            filter_script_path=filter_script_path,
+        )
+    except RuntimeError as path_error:
+        emit("error", "error", "paths", str(path_error), error=str(path_error))
+        return 1
 
     try:
         target_duration_sec, min_duration_sec, max_duration_sec = normalize_duration_settings(
@@ -1445,7 +1536,7 @@ def main() -> int:
             keep_ranges = build_preedit_keep_ranges(total_duration, pause_decisions)
 
         edited_duration_sec = round(sum(item["end"] - item["start"] for item in keep_ranges), 3)
-        output_file = output_dir / f"{input_file.stem}_preedit.mp4"
+        output_file = output_dir / f"{safe_stem}_preedit.mp4"
         debug_path = write_debug_decisions(output_file, pause_decisions) if args.write_debug_json else None
         clip_exports = [
             build_preedit_export_payload(
@@ -1510,7 +1601,19 @@ def main() -> int:
             transcriptionComputeType=whisper_compute,
         )
 
-        export_preedited_video(module, str(input_file), output_file, keep_ranges, audio_stream_count)
+        print(
+            f"[debug] keep_ranges={len(keep_ranges)} audio_streams={audio_stream_count} "
+            f"using_filter_script=true script_path={filter_script_path}",
+            flush=True,
+        )
+        export_preedited_video(
+            module,
+            str(input_file),
+            output_file,
+            keep_ranges,
+            audio_stream_count,
+            filter_script_path=filter_script_path,
+        )
         preserved_audio_streams = probe_audio_streams(module, str(output_file))
         preserved_audio_count = len(preserved_audio_streams)
         if preserved_audio_count != audio_stream_count:
@@ -1524,10 +1627,11 @@ def main() -> int:
             flush=True,
         )
 
-        try:
-            Path(audio_path).unlink(missing_ok=True)
-        except Exception:
-            pass
+        for cleanup_path in (Path(audio_path), filter_script_path):
+            try:
+                cleanup_path.unlink(missing_ok=True)
+            except Exception:
+                pass
 
         emit(
             "done",

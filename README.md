@@ -66,6 +66,7 @@ Variaveis opcionais:
 
 - `CARECA_SUBTITLE_FORGE_PATH`: caminho do ambiente Python usado pelo SubtitleForge.
 - `CARECA_CLIP_SPLITTER_PATH`: caminho do projeto externo usado pelo Clip Splitter.
+- `CARECA_CS_TEMP`: pasta temporaria curta usada pelo Pre-Editor (ex.: `D:\cs_tmp`). Evita [WinError 206] quando o input/output esta em caminho profundo. Se nao definido, o app tenta `<drive>:\cs_tmp` e cai para a pasta do video como fallback.
 - `GEMINI_API_KEY`: opcional para recursos de IA do Clip Splitter externo, quando habilitados.
 
 ## Instalacao
