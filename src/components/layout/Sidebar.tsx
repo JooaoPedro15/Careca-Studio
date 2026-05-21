@@ -1,4 +1,4 @@
-import { BookOpenText, Clapperboard, Film, Radar } from 'lucide-react'
+import { Clapperboard, Film } from 'lucide-react'
 
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/utils'
@@ -28,7 +28,7 @@ function CarecaIcon({ className }: { className?: string }) {
   )
 }
 
-const tools = [
+export const tools = [
   {
     id: 'subtitle-forge' as const,
     name: 'SubtitleForge',
@@ -41,20 +41,6 @@ const tools = [
     name: 'Pre-Editor',
     description: 'Limpa o bruto',
     icon: Film,
-    badge: 'New',
-  },
-  {
-    id: 'media-kit' as const,
-    name: 'Media Kit',
-    description: 'Deck comercial',
-    icon: BookOpenText,
-    badge: 'Live',
-  },
-  {
-    id: 'partner-scout' as const,
-    name: 'Partner Scout',
-    description: 'Radar de leads',
-    icon: Radar,
     badge: 'New',
   },
 ] satisfies Array<{
@@ -121,7 +107,7 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
       <div className="mt-auto rounded-xl border border-white/8 bg-white/4 p-4">
         <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Roadmap</p>
         <p className="mt-2 text-sm text-text-secondary">
-          Media Kit e Partner Scout agora vivem no mesmo shell do SubtitleForge.
+          O Studio agora foca em ferramentas de edicao para acelerar cortes e legendas.
         </p>
       </div>
     </aside>

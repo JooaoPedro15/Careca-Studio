@@ -3,7 +3,7 @@
 
   <h1>Careca Studio</h1>
 
-  <p><strong>Aplicativo desktop para centralizar fluxos de produção de conteúdo, automação com IA e ferramentas comerciais do canal Roberto Careca.</strong></p>
+  <p><strong>Aplicativo desktop de edicao para creators, focado em acelerar cortes e legendas.</strong></p>
 
   <p>
     <img alt="Electron" src="https://img.shields.io/badge/Electron-41-47848F?style=for-the-badge&logo=electron&logoColor=white" />
@@ -17,18 +17,16 @@
 
 ## Sobre
 
-O **Careca Studio** é um app desktop feito com Electron, React e TypeScript para reunir ferramentas internas de mídia, prospecção e materiais comerciais em uma única interface.
+O **Careca Studio** e um app desktop feito com Electron, React e TypeScript para centralizar ferramentas locais de edicao usadas no workflow de criadores.
 
-Ele funciona como um painel local: o renderer React cuida da experiência visual, o Electron faz a ponte segura com o sistema operacional e scripts Python executam os pipelines mais pesados.
+O escopo atual e simples: preparar material bruto com rapidez, gerar legendas e apoiar futuras ferramentas de edicao. Modulos comerciais e de inteligencia de parcerias foram separados do Studio.
 
 ## Funcionalidades
 
-| Módulo | Status | O que faz |
+| Modulo | Status | O que faz |
 | --- | --- | --- |
-| **SubtitleForge** | Estável | Transcreve áudio/vídeo com Whisper e gera arquivos `.srt`. |
-| **Clip Splitter** | Em evolução | Divide vídeos longos em cortes curtos com presets, fila e feedback por clipe. |
-| **Media Kit** | Estável | Edita dados comerciais, templates e previews para materiais de apresentação. |
-| **Partner Scout** | Em evolução | Mapeia marcas, calcula fit comercial e gera sugestões de abordagem. |
+| **SubtitleForge** | Estavel | Transcreve audio/video com Whisper e gera arquivos `.srt`. |
+| **Clip Splitter** | Em evolucao | Divide videos longos em cortes curtos com presets, fila e feedback por clipe. |
 
 ## Stack
 
@@ -36,51 +34,41 @@ Ele funciona como um painel local: o renderer React cuida da experiência visual
 - **Frontend:** React, TypeScript e Vite
 - **Estilo:** Tailwind CSS
 - **Estado:** Zustand
-- **Ícones:** Lucide React
+- **Icones:** Lucide React
 - **Testes:** Vitest
-- **Workers locais:** Python para transcrição e processamento de mídia
+- **Workers locais:** Python para transcricao e processamento de video
 
 ## Arquitetura
 
-```
-┌──────────────────┐     IPC      ┌──────────────────┐     stdio     ┌──────────────────┐
-│  Renderer React  │ ◄──────────► │ Electron main +  │ ◄───────────► │  Python workers  │
-│  (Vite, Tailwind)│              │ preload bridge   │               │  (Whisper, FFmpeg)│
-└──────────────────┘              └──────────────────┘               └──────────────────┘
-        │                                  │
-        ▼                                  ▼
-   Zustand store                    electron-store
-   (estado UI)                      (persistência)
+```text
+Renderer React  <->  Electron main/preload  <->  Python workers
 ```
 
-- **Renderer** (`src/`): UI React + Tailwind, estado via Zustand
-- **Main process** (`electron/`): IPC handlers, persistência, orquestração de workers
-- **Workers Python** (`python/`): pipelines de transcrição (faster-whisper) e processamento de vídeo
-- **Bundle splitting**: vendor (`react`/`react-dom`) e ícones em chunks separados para cache otimizado
+- **Renderer** (`src/`): UI React + Tailwind, estado via Zustand.
+- **Main process** (`electron/`): IPC handlers, dialogs, janela e orquestracao de workers.
+- **Workers Python** (`python/`): pipelines de legenda e corte.
 
-## Pré-requisitos
+## Pre-requisitos
 
 - Node.js 22+
 - npm 10+
 - Python 3.10+
-- FFmpeg e FFprobe disponíveis no sistema
-- GPU NVIDIA com CUDA é opcional, mas recomendada para transcrição com Whisper
+- FFmpeg e FFprobe disponiveis no sistema
+- GPU NVIDIA com CUDA e opcional, mas recomendada para transcricao com Whisper
 
-## Configuração
+## Configuracao
 
 ```bash
 cp .env.example .env
-# preencha GEMINI_API_KEY e YOUTUBE_API_KEY se quiser usar integrações de IA
 ```
 
-Variáveis opcionais (apenas se for usar os respectivos módulos):
+Variaveis opcionais:
 
-- `CARECA_SUBTITLE_FORGE_PATH`: caminho do ambiente Python usado pelo SubtitleForge
-- `CARECA_CLIP_SPLITTER_PATH`: caminho do projeto externo usado pelo Clip Splitter
-- `GEMINI_API_KEY`: chave para enriquecimento de marcas no Partner Scout
-- `YOUTUBE_API_KEY`: chave para sincronização de métricas no Media Kit
+- `CARECA_SUBTITLE_FORGE_PATH`: caminho do ambiente Python usado pelo SubtitleForge.
+- `CARECA_CLIP_SPLITTER_PATH`: caminho do projeto externo usado pelo Clip Splitter.
+- `GEMINI_API_KEY`: opcional para recursos de IA do Clip Splitter externo, quando habilitados.
 
-## Instalação
+## Instalacao
 
 ```bash
 npm install
@@ -96,13 +84,13 @@ Esse comando inicia o Vite, compila o processo principal do Electron em modo wat
 
 ## Scripts
 
-| Comando | Descrição |
+| Comando | Descricao |
 | --- | --- |
 | `npm run dev` | Inicia apenas o renderer com Vite. |
 | `npm run electron:dev` | Inicia o app completo em modo desenvolvimento. |
 | `npm run build` | Compila renderer e processo principal. |
 | `npm run electron:build` | Gera build do app Electron. |
-| `npm test` | Executa a suíte de testes com Vitest. |
+| `npm test` | Executa a suite de testes com Vitest. |
 | `npm run test:watch` | Executa os testes em modo watch. |
 
 ## Estrutura
@@ -110,29 +98,32 @@ Esse comando inicia o Vite, compila o processo principal do Electron em modo wat
 ```text
 careca-studio/
 ├─ electron/             # Processo principal, preload e handlers IPC
-│  ├─ ipc/               # Handlers IPC (clipSplitter, partnerScout, pptx, subtitle)
-│  └─ services/          # Serviços do main (cache, agent, run-history)
+│  ├─ ipc/               # Handlers IPC (clipSplitter, subtitle)
+│  └─ clipFeedbackStore.ts
 ├─ python/               # Workers locais (faster-whisper, FFmpeg)
-├─ resources/            # Ícones do aplicativo
-├─ scripts/              # Scripts utilitários
+├─ resources/            # Icones do aplicativo
+├─ scripts/              # Scripts utilitarios
 ├─ src/
 │  ├─ components/
-│  │  ├─ layout/         # Sidebar e Topbar
-│  │  └─ ui/             # Primitivos (Button, Card, Badge…)
+│  │  ├─ clipSplitter/
+│  │  ├─ layout/
+│  │  ├─ subtitle/
+│  │  └─ ui/
 │  ├─ hooks/             # Hooks que conectam UI ao Electron
-│  ├─ modules/           # Módulos de negócio
-│  │  ├─ media-kit/
-│  │  └─ partner-scout/
-│  ├─ pages/             # Telas que ainda não viraram módulo
+│  ├─ pages/             # Telas das ferramentas de edicao
 │  ├─ store/             # Estado global Zustand
 │  └─ types/             # Contratos TypeScript compartilhados
-└─ docs/                 # Documentação técnica
+└─ docs/                 # Documentacao tecnica e referencias legadas
 ```
 
-## Segurança
+## Modulos legados
+
+Modulos fora do escopo atual foram removidos do shell ativo. Veja [docs/legacy_modules.md](docs/legacy_modules.md) para referencia historica.
+
+## Seguranca
 
 Reporte vulnerabilidades conforme [SECURITY.md](SECURITY.md).
 
-## Licença
+## Licenca
 
-[MIT](LICENSE) © 2026 João Pedro Costa e Silva
+[MIT](LICENSE) © 2026 Joao Pedro Costa e Silva

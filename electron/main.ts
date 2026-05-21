@@ -3,8 +3,6 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { registerClipSplitterHandlers } from './ipc/clipSplitter.js'
-import { registerPartnerScoutHandlers } from './ipc/partnerScout.js'
-import { registerPptxHandlers } from './ipc/pptx.js'
 import { registerSubtitleHandlers } from './ipc/subtitle.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -96,8 +94,6 @@ ipcMain.handle('shell:openPath', async (_event, filePath: string) => {
 // Registra os namespaces de IPC que gerenciam filas e processos filhos.
 registerSubtitleHandlers()
 registerClipSplitterHandlers()
-registerPartnerScoutHandlers()
-registerPptxHandlers()
 
 // Cria a janela quando o Electron estiver pronto e reabre no macOS ao reativar.
 app.whenReady().then(() => {

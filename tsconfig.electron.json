@@ -12,6 +12,6 @@
     "rootDir": ".",
     "resolveJsonModule": true
   },
-  "include": ["electron", "src/modules/partner-scout-v2"],
-  "exclude": ["**/*.test.ts", "src/modules/partner-scout-v2/**/*.tsx", "src/modules/partner-scout-v2/components", "src/modules/partner-scout-v2/index.tsx"]
+  "include": ["electron"],
+  "exclude": ["**/*.test.ts"]
 }

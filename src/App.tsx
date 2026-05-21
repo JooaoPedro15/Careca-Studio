@@ -2,14 +2,12 @@ import { Sidebar } from '@/components/layout/Sidebar'
 import { Topbar } from '@/components/layout/Topbar'
 import { useClipSplitter } from '@/hooks/useClipSplitter'
 import { useSubtitleForge } from '@/hooks/useSubtitleForge'
-import { MediaKitModule } from '@/modules/media-kit'
-import { PartnerScoutModule } from '@/modules/partner-scout'
 import { ClipSplitterPage } from '@/pages/ClipSplitter'
 import { SubtitleForgePage } from '@/pages/SubtitleForge'
 import { useAppStore } from '@/store/appStore'
 import type { ToolId } from '@/types/subtitle'
 
-const pageMeta: Record<ToolId, { title: string; description: string }> = {
+export const pageMeta: Record<ToolId, { title: string; description: string }> = {
   'subtitle-forge': {
     title: 'SubtitleForge',
     description: 'Central de transcricao com fila, presets de legenda e integracao com o pipeline Python local.',
@@ -17,14 +15,6 @@ const pageMeta: Record<ToolId, { title: string; description: string }> = {
   'clip-splitter': {
     title: 'Pre-Editor',
     description: 'Pre-edicao automatica do bruto: comprime pausas, preserva a ordem e mantem faixas separadas.',
-  },
-  'media-kit': {
-    title: 'Media Kit',
-    description: 'Editor comercial com dashboard, templates, preview ao vivo e export para deck.',
-  },
-  'partner-scout': {
-    title: 'Partner Scout',
-    description: 'Radar de marcas, timing de campanha, scoring de fit e geracao de pitch shorts-first.',
   },
 }
 
@@ -47,10 +37,6 @@ export default function App() {
         onStartSplit={() => clipSplitter.startSplit()}
       />
     )
-  } else if (activeTool === 'media-kit') {
-    content = <MediaKitModule />
-  } else if (activeTool === 'partner-scout') {
-    content = <PartnerScoutModule />
   } else {
     content = (
       <SubtitleForgePage
