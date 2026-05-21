@@ -3,7 +3,7 @@ import { Film, FolderOutput, FolderSearch, Scissors, Waves } from 'lucide-react'
 // ── Hooks do React: useMemo memoriza valores caros, useState gerencia estado local
 import { useMemo, useState } from 'react'
 
-// ── Componente que renderiza a lista de tarefas (jobs) do clip splitter
+// ── Componente que renderiza a lista de tarefas (jobs) do Pre-Editor
 import { ClipSplitterTaskList } from '@/components/clipSplitter/TaskList'
 // ── Componentes de UI reutilizáveis do design system do app
 import { Badge } from '@/components/ui/Badge'
@@ -37,7 +37,7 @@ interface ClipSplitterPageProps {
 }
 
 /**
- * Página principal do Clip Splitter.
+ * Página principal do Pre-Editor.
  * Permite selecionar um bruto longo e gerar uma pre-edicao unica com pausas mais limpas.
  */
 export function ClipSplitterPage({
@@ -115,7 +115,7 @@ export function ClipSplitterPage({
         />
         {/* Card que mostra se há jobs na fila ou se está livre */}
         <StatCard
-          hint={activeTasks.length > 0 ? 'Existe job rodando ou aguardando na fila.' : 'Fila livre para novos cortes.'}
+          hint={activeTasks.length > 0 ? 'Existe job rodando ou aguardando na fila.' : 'Fila livre para nova pre-edicao.'}
           icon={<FolderOutput className="h-4 w-4" />}
           label="Fila"
           value={activeTasks.length > 0 ? `${activeTasks.length} ativo(s)` : 'Livre'}
@@ -161,11 +161,11 @@ export function ClipSplitterPage({
             <div className="flex flex-wrap gap-3">
               {/* Abre o file picker para selecionar o vídeo fonte */}
               <Button onClick={() => void runAction(onPickSourceFile)}>Selecionar video</Button>
-              {/* Abre o file picker para escolher a pasta de saída dos clips */}
+              {/* Abre o file picker para escolher a pasta de saida da pre-edicao */}
               <Button onClick={() => void runAction(onPickOutputDir)} variant="ghost">
                 Escolher pasta de saida
               </Button>
-              {/* Inicia o processo de exportação/split dos clips */}
+              {/* Inicia o processo de exportacao da pre-edicao */}
               <Button onClick={() => void runAction(onStartSplit)} variant="ghost">
                 Gerar pre-edicao
               </Button>
@@ -245,6 +245,15 @@ export function ClipSplitterPage({
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 sm:col-span-2">
+                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Faixa de analise</span>
+                <input
+                  className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
+                  onChange={(event) => patchSettings({ analysisAudioTrack: event.target.value.trim() || '0' })}
+                  placeholder="0 ou mic"
+                  value={settings.analysisAudioTrack}
+                />
+              </label>
               {/* Duração alvo por clip em segundos (o FFmpeg tenta cortar perto disso) */}
               <label className="space-y-2">
                 <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Alvo legado (s)</span>
@@ -332,7 +341,7 @@ export function ClipSplitterPage({
             </div>
           </Card>
 
-          {/* ── Card informativo: explica como o motor de split funciona ──── */}
+          {/* ── Card informativo: explica como o motor de pre-edicao funciona ──── */}
           <Card className="space-y-4">
             {/* Cabeçalho com ícone e descrição geral */}
             <div className="flex items-center gap-3">

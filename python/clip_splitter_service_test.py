@@ -2,6 +2,7 @@ import unittest
 import importlib.util
 import json
 import tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 
@@ -101,6 +102,51 @@ class ClipSplitterPreEditDecisionTest(unittest.TestCase):
 
             self.assertEqual(debug_path.name, "bruto_preedit.debug.json")
             self.assertEqual(payload, decisions)
+
+    def test_mic_track_name_resolves_to_matching_audio_stream(self):
+        streams = [
+            {"index": 1, "audio_index": 0, "title": "Game"},
+            {"index": 2, "audio_index": 1, "title": "Mic"},
+        ]
+
+        selected = self.service.resolve_analysis_audio_track("mic", streams)
+
+        self.assertEqual(selected["audio_index"], 1)
+        self.assertEqual(selected["stream_index"], 2)
+        self.assertIn("mic", selected["reason"].lower())
+
+    def test_unknown_mic_track_falls_back_to_first_audio_stream(self):
+        streams = [
+            {"index": 1, "audio_index": 0, "title": "Game"},
+            {"index": 2, "audio_index": 1, "title": "Discord"},
+        ]
+
+        selected = self.service.resolve_analysis_audio_track("mic", streams)
+
+        self.assertEqual(selected["audio_index"], 0)
+        self.assertIn("fallback", selected["reason"].lower())
+
+    def test_preedit_ffmpeg_command_preserves_each_audio_track_separately(self):
+        module = SimpleNamespace(FFMPEG="ffmpeg")
+        keep_ranges = [{"start": 0.0, "end": 1.0}, {"start": 2.0, "end": 3.0}]
+
+        command = self.service.build_preedit_ffmpeg_command(
+            module,
+            "input.mp4",
+            Path("output.mp4"),
+            keep_ranges,
+            audio_stream_count=3,
+        )
+        command_text = " ".join(command)
+
+        self.assertIn("[0:a:0]", command_text)
+        self.assertIn("[0:a:1]", command_text)
+        self.assertIn("[0:a:2]", command_text)
+        self.assertIn("[outa0]", command)
+        self.assertIn("[outa1]", command)
+        self.assertIn("[outa2]", command)
+        self.assertNotIn("[0:a]atrim", command_text)
+        self.assertNotIn("[outa]", command)
 
 
 if __name__ == "__main__":

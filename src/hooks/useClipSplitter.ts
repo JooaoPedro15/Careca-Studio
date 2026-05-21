@@ -24,7 +24,7 @@ export interface ClipSplitterActionResult {
   message: string | null
 }
 
-// Lê a configuracao atual do clip splitter sem depender do ciclo de renderizacao.
+// Le a configuracao atual do Pre-Editor sem depender do ciclo de renderizacao.
 function getSettingsSnapshot(): Partial<ClipSplitterOptions> {
   return useAppStore.getState().clipSplitterSettings
 }
@@ -49,7 +49,7 @@ export function useClipSplitter() {
   useEffect(() => {
     // Assina progresso, conclusao e erro enquanto o hook estiver ativo.
     if (!carecaApi?.clipSplitter) {
-      console.error('[careca] clip splitter API indisponivel no renderer')
+      console.error('[careca] Pre-Editor API indisponivel no renderer')
       return
     }
 
@@ -75,14 +75,14 @@ export function useClipSplitter() {
     if (!resolvedSourcePath) {
       return {
         ok: false,
-        message: 'Selecione um video antes de exportar os cortes.',
+        message: 'Selecione um video antes de gerar a pre-edicao.',
       }
     }
 
     if (!carecaApi?.clipSplitter) {
       return {
         ok: false,
-        message: 'A API desktop do clip splitter nao esta disponivel. Abra com npm.cmd run electron:dev.',
+        message: 'A API desktop do Pre-Editor nao esta disponivel. Abra com npm.cmd run electron:dev.',
       }
     }
 
@@ -111,10 +111,10 @@ export function useClipSplitter() {
         message: null,
       }
     } catch (error) {
-      console.error('[careca] falha ao iniciar clip splitter', error)
+      console.error('[careca] falha ao iniciar Pre-Editor', error)
       return {
         ok: false,
-        message: 'Nao foi possivel iniciar o corte agora. Verifique se o Electron esta ativo.',
+        message: 'Nao foi possivel iniciar a pre-edicao agora. Verifique se o Electron esta ativo.',
       }
     }
   }
@@ -145,7 +145,7 @@ export function useClipSplitter() {
       }
     },
     pickOutputDir: async (): Promise<ClipSplitterActionResult> => {
-      // Permite sobrescrever a pasta de saida padrao antes de exportar os clipes.
+      // Permite sobrescrever a pasta de saida padrao antes de exportar a pre-edicao.
       if (!carecaApi?.dialog?.openDirectory) {
         return {
           ok: false,
@@ -190,7 +190,7 @@ export function useClipSplitter() {
       if (!carecaApi?.clipSplitter?.saveFeedback) {
         return {
           ok: false,
-          message: 'A API de feedback do clip splitter nao esta disponivel nesta execucao.',
+          message: 'A API de feedback do Pre-Editor nao esta disponivel nesta execucao.',
         }
       }
 

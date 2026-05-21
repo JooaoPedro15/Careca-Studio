@@ -1077,19 +1077,157 @@ def export_parts(module: Any, video_path: str, output_dir: Path, base_name: str,
         )
 
 
+# Lê os streams de audio do arquivo original para escolher análise e preservar faixas na exportação.
+def probe_audio_streams(module: Any, video_path: str) -> list[dict]:
+    command = [
+        module.FFPROBE,
+        "-v",
+        "error",
+        "-select_streams",
+        "a",
+        "-show_entries",
+        "stream=index,codec_name:stream_tags=title,handler_name",
+        "-of",
+        "json",
+        video_path,
+    ]
+
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        payload = json.loads(result.stdout or "{}")
+    except Exception:
+        return []
+
+    streams: list[dict] = []
+    for audio_index, stream in enumerate(payload.get("streams", []) if isinstance(payload, dict) else []):
+        if not isinstance(stream, dict):
+            continue
+
+        tags = stream.get("tags", {}) if isinstance(stream.get("tags"), dict) else {}
+        streams.append(
+            {
+                "index": int(stream.get("index", audio_index)),
+                "audio_index": audio_index,
+                "codec_name": str(stream.get("codec_name", "")),
+                "title": str(tags.get("title") or tags.get("handler_name") or ""),
+            }
+        )
+
+    return streams
+
+
+# Resolve a faixa de audio usada para detectar silencio; se nao encontrar mic, cai na primeira.
+def resolve_analysis_audio_track(selection: str | int | None, audio_streams: list[dict]) -> dict:
+    if not audio_streams:
+        raise RuntimeError("Nenhuma faixa de audio encontrada para analise.")
+
+    def with_reason(stream: dict, reason: str) -> dict:
+        return {
+            **stream,
+            "stream_index": int(stream.get("index", stream.get("audio_index", 0))),
+            "reason": reason,
+        }
+
+    normalized_selection = str(selection if selection is not None else "0").strip().lower()
+    if normalized_selection.isdigit():
+        requested_index = int(normalized_selection)
+        for stream in audio_streams:
+            if int(stream.get("audio_index", -1)) == requested_index:
+                return with_reason(stream, f"using configured audio track {requested_index}")
+
+        return with_reason(
+            audio_streams[0],
+            f"fallback to first audio track because configured track {requested_index} was not found",
+        )
+
+    name_tokens = ["mic", "microphone", "microfone", "voz", "voice"]
+    if normalized_selection in {"mic", "microphone", "microfone", "voz", "voice"}:
+        for stream in audio_streams:
+            title = str(stream.get("title", "")).lower()
+            if any(token in title for token in name_tokens):
+                return with_reason(stream, f"using mic-like audio track '{stream.get('title', '')}'")
+
+        return with_reason(audio_streams[0], "fallback to first audio track because mic track was not identified")
+
+    for stream in audio_streams:
+        title = str(stream.get("title", "")).lower()
+        if normalized_selection and normalized_selection in title:
+            return with_reason(stream, f"using audio track matching '{normalized_selection}'")
+
+    return with_reason(
+        audio_streams[0],
+        f"fallback to first audio track because '{normalized_selection}' was not identified",
+    )
+
+
+# Extrai somente a faixa escolhida para análise, sem alterar as faixas que serão exportadas depois.
+def extract_analysis_audio_track(module: Any, video_path: str, output_path: str, audio_track_index: int) -> str:
+    audio_path = str(Path(output_path) / "audio_temp.wav")
+    print(f"1/4 Extraindo audio de analise da faixa {audio_track_index}...", flush=True)
+    module.executar_ffmpeg_com_progresso(
+        [
+            module.FFMPEG,
+            "-y",
+            "-i",
+            video_path,
+            "-map",
+            f"0:a:{audio_track_index}",
+            "-vn",
+            "-acodec",
+            "pcm_s16le",
+            "-ar",
+            "16000",
+            "-ac",
+            "1",
+            audio_path,
+        ],
+        "Extracao de audio para analise",
+    )
+    print("   Audio de analise extraido", flush=True)
+    return audio_path
+
+
 # Cria o comando FFmpeg que concatena os trechos preservados em um unico video limpo.
-def build_preedit_ffmpeg_command(module: Any, video_path: str, output_file: Path, keep_ranges: list[dict]) -> list[str]:
+def build_preedit_ffmpeg_command(
+    module: Any,
+    video_path: str,
+    output_file: Path,
+    keep_ranges: list[dict],
+    audio_stream_count: int = 1,
+) -> list[str]:
     filters: list[str] = []
-    labels: list[str] = []
+    video_labels: list[str] = []
+    audio_output_labels: list[str] = []
 
     for index, keep_range in enumerate(keep_ranges):
         start = float(keep_range["start"])
         end = float(keep_range["end"])
-        filters.append(f"[0:v]trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS[v{index}]")
-        filters.append(f"[0:a]atrim=start={start:.3f}:end={end:.3f},asetpts=PTS-STARTPTS[a{index}]")
-        labels.append(f"[v{index}][a{index}]")
+        filters.append(f"[0:v:0]trim=start={start:.3f}:end={end:.3f},setpts=PTS-STARTPTS[v{index}]")
+        video_labels.append(f"[v{index}]")
 
-    filters.append(f"{''.join(labels)}concat=n={len(keep_ranges)}:v=1:a=1[outv][outa]")
+        for audio_index in range(audio_stream_count):
+            filters.append(
+                f"[0:a:{audio_index}]atrim=start={start:.3f}:end={end:.3f},asetpts=PTS-STARTPTS[a{audio_index}_{index}]"
+            )
+
+    filters.append(f"{''.join(video_labels)}concat=n={len(keep_ranges)}:v=1:a=0[outv]")
+
+    for audio_index in range(audio_stream_count):
+        labels = "".join(f"[a{audio_index}_{index}]" for index in range(len(keep_ranges)))
+        output_label = f"[outa{audio_index}]"
+        filters.append(f"{labels}concat=n={len(keep_ranges)}:v=0:a=1{output_label}")
+        audio_output_labels.append(output_label)
+
+    map_args = ["-map", "[outv]"]
+    for output_label in audio_output_labels:
+        map_args.extend(["-map", output_label])
 
     return [
         module.FFMPEG,
@@ -1098,10 +1236,7 @@ def build_preedit_ffmpeg_command(module: Any, video_path: str, output_file: Path
         video_path,
         "-filter_complex",
         ";".join(filters),
-        "-map",
-        "[outv]",
-        "-map",
-        "[outa]",
+        *map_args,
         "-c:v",
         "libx264",
         "-preset",
@@ -1119,13 +1254,19 @@ def build_preedit_ffmpeg_command(module: Any, video_path: str, output_file: Path
 
 
 # Exporta a pre-edicao como um arquivo unico, preservando a ordem original dos trechos mantidos.
-def export_preedited_video(module: Any, video_path: str, output_file: Path, keep_ranges: list[dict]) -> None:
+def export_preedited_video(
+    module: Any,
+    video_path: str,
+    output_file: Path,
+    keep_ranges: list[dict],
+    audio_stream_count: int,
+) -> None:
     if not keep_ranges:
         raise RuntimeError("Nenhum trecho valido para exportar a pre-edicao.")
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
     module.executar_ffmpeg_com_progresso(
-        build_preedit_ffmpeg_command(module, video_path, output_file, keep_ranges),
+        build_preedit_ffmpeg_command(module, video_path, output_file, keep_ranges, audio_stream_count=audio_stream_count),
         "Exportando pre-edicao",
     )
 
@@ -1158,7 +1299,7 @@ def configure_whisper_runtime(module: Any, force_cpu: bool) -> tuple[str, str]:
 
 # Interface CLI usada pelo processo principal do Electron para iniciar o runner.
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Careca Studio Clip Splitter service")
+    parser = argparse.ArgumentParser(description="Careca Studio Pre-Editor service")
     parser.add_argument("input", help="Caminho do video")
     parser.add_argument("-o", "--output", default=None)
     parser.add_argument("--project-root", default=None)
@@ -1169,6 +1310,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-duration", type=float, default=50.0)
     parser.add_argument("--silence-threshold-db", type=float, default=-35.0)
     parser.add_argument("--silence-min-duration", type=float, default=0.45)
+    parser.add_argument("--analysis-audio-track", default="0")
     parser.add_argument("--feedback-file", default=None)
     parser.add_argument("--write-debug-json", action="store_true")
     parser.add_argument("--cpu", action="store_true")
@@ -1227,12 +1369,24 @@ def main() -> int:
             transcriptionComputeType=whisper_compute,
         )
         total_duration = float(module.get_duracao(str(input_file)))
+        audio_streams = probe_audio_streams(module, str(input_file))
+        if not audio_streams:
+            raise RuntimeError("Nenhuma faixa de audio encontrada no video de entrada.")
+
+        analysis_audio = resolve_analysis_audio_track(args.analysis_audio_track, audio_streams)
+        analysis_audio_index = int(analysis_audio["audio_index"])
+        audio_stream_count = len(audio_streams)
+        print(
+            f"Audio: {audio_stream_count} faixa(s) detectada(s); analisando faixa {analysis_audio_index} "
+            f"(stream {analysis_audio['stream_index']}). {analysis_audio['reason']}",
+            flush=True,
+        )
 
         emit(
             "status",
             "preparing",
             "extracting-audio",
-            "Extraindo audio temporario...",
+            f"Extraindo audio de analise da faixa {analysis_audio_index}/{audio_stream_count - 1}...",
             progress=18,
             outputDir=str(output_dir),
             sourceDurationSec=total_duration,
@@ -1242,7 +1396,7 @@ def main() -> int:
             transcriptionDevice=whisper_device,
             transcriptionComputeType=whisper_compute,
         )
-        audio_path = module.extrair_audio(str(input_file), str(temp_dir))
+        audio_path = extract_analysis_audio_track(module, str(input_file), str(temp_dir), analysis_audio_index)
 
         emit(
             "status",
@@ -1344,7 +1498,19 @@ def main() -> int:
             transcriptionComputeType=whisper_compute,
         )
 
-        export_preedited_video(module, str(input_file), output_file, keep_ranges)
+        export_preedited_video(module, str(input_file), output_file, keep_ranges, audio_stream_count)
+        preserved_audio_streams = probe_audio_streams(module, str(output_file))
+        preserved_audio_count = len(preserved_audio_streams)
+        if preserved_audio_count != audio_stream_count:
+            raise RuntimeError(
+                f"Possivel downmix acidental: entrada tinha {audio_stream_count} faixa(s) de audio, "
+                f"saida preservou {preserved_audio_count}."
+            )
+
+        print(
+            f"Audio: {audio_stream_count} faixa(s) na entrada; {preserved_audio_count} preservada(s) na saida.",
+            flush=True,
+        )
 
         try:
             Path(audio_path).unlink(missing_ok=True)
@@ -1355,7 +1521,7 @@ def main() -> int:
             "done",
             "completed",
             "done",
-            "Pre-edicao exportada com sucesso.",
+            f"Pre-edicao exportada com sucesso; {preserved_audio_count} faixa(s) de audio preservada(s).",
             progress=100,
             outputDir=str(output_dir),
             debugPath=debug_path,
@@ -1376,7 +1542,7 @@ def main() -> int:
             "error",
             "error",
             "processing",
-            "Falha ao processar o clip splitter.",
+            "Falha ao processar o Pre-Editor.",
             error=str(error),
             outputDir=str(output_dir),
             aiRequested=False,

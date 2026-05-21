@@ -1,4 +1,4 @@
-import { BookOpenText, Clapperboard, Radar, Scissors } from 'lucide-react'
+import { BookOpenText, Clapperboard, Film, Radar } from 'lucide-react'
 
 import { Badge } from '@/components/ui/Badge'
 import { cn } from '@/lib/utils'
@@ -38,9 +38,9 @@ const tools = [
   },
   {
     id: 'clip-splitter' as const,
-    name: 'Clip Splitter',
-    description: 'Quebra em cortes',
-    icon: Scissors,
+    name: 'Pre-Editor',
+    description: 'Limpa o bruto',
+    icon: Film,
     badge: 'New',
   },
   {

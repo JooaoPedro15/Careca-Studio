@@ -8,7 +8,7 @@ import { ipcMain, type WebContents } from 'electron'
 
 import { getClipFeedbackFilePath, saveClipFeedbackEntry, type ClipFeedbackLabel } from '../clipFeedbackStore.js'
 
-// Tipos locais que descrevem os jobs do clip splitter enquanto rodam no processo principal.
+// Tipos locais que descrevem os jobs do Pre-Editor enquanto rodam no processo principal.
 type ClipSplitterMode = 'fixed' | 'silence'
 type ClipSplitterPreEditMode = 'conservative' | 'balanced' | 'aggressive'
 type ClipSplitterStatus = 'queued' | 'preparing' | 'processing' | 'completed' | 'error' | 'cancelled'
@@ -18,6 +18,7 @@ interface ClipSplitterTaskOptions {
   mode: ClipSplitterMode
   preEditMode: ClipSplitterPreEditMode
   writeDebugJson: boolean
+  analysisAudioTrack: string
   targetDurationSec: number
   minClipDurationSec: number
   maxClipDurationSec: number
@@ -162,6 +163,7 @@ const defaultOptions: ClipSplitterTaskOptions = {
   mode: 'silence',
   preEditMode: 'balanced',
   writeDebugJson: false,
+  analysisAudioTrack: '0',
   targetDurationSec: 35,
   minClipDurationSec: 20,
   maxClipDurationSec: 50,
@@ -192,6 +194,7 @@ function normalizeOptions(options: Partial<ClipSplitterTaskOptions> | undefined)
         ? options.preEditMode
         : defaultOptions.preEditMode,
     writeDebugJson: options?.writeDebugJson ?? defaultOptions.writeDebugJson,
+    analysisAudioTrack: String(options?.analysisAudioTrack ?? defaultOptions.analysisAudioTrack).trim() || defaultOptions.analysisAudioTrack,
     targetDurationSec,
     minClipDurationSec,
     maxClipDurationSec,
@@ -248,7 +251,7 @@ function emitDone(task: ClipSplitterTaskRecord, durationSec: number) {
     ...toPayload(task, {
       status: 'completed',
       stage: 'done',
-      message: task.lastMessage || 'Clip splitter concluido.',
+      message: task.lastMessage || 'Pre-Editor concluido.',
       progress: 100,
       completedAt: task.completedAt ?? Date.now(),
       durationSec,
@@ -378,6 +381,8 @@ function buildProcessArgs(serviceScriptPath: string, clipSplitterRoot: string, t
     String(task.options.silenceThresholdDb),
     '--silence-min-duration',
     String(task.options.silenceMinDurationSec),
+    '--analysis-audio-track',
+    task.options.analysisAudioTrack,
     '--feedback-file',
     getClipFeedbackFilePath(),
   ]
@@ -517,11 +522,11 @@ function applyRunnerEvent(task: ClipSplitterTaskRecord, event: RunnerEvent) {
 // Converte codigos de saida nativos do Windows em mensagens mais diagnosticas.
 function describeProcessExit(code: number | null) {
   if (code === 3221226505) {
-    return 'O Clip Splitter encerrou com erro nativo do Windows (3221226505 / 0xC0000409). Isso costuma indicar falha em CUDA, CTranslate2 ou driver de GPU.'
+    return 'O Pre-Editor encerrou com erro nativo do Windows (3221226505 / 0xC0000409). Isso costuma indicar falha em CUDA, CTranslate2 ou driver de GPU.'
   }
 
   if (code === 3221225477) {
-    return 'O Clip Splitter encerrou com violacao de acesso do Windows (3221225477 / 0xC0000005). Isso costuma indicar falha em biblioteca nativa, driver ou memoria da GPU.'
+    return 'O Pre-Editor encerrou com violacao de acesso do Windows (3221225477 / 0xC0000005). Isso costuma indicar falha em biblioteca nativa, driver ou memoria da GPU.'
   }
 
   return `Processo finalizado com codigo ${code ?? 'desconhecido'}.`
@@ -556,7 +561,7 @@ function finishTask(task: ClipSplitterTaskRecord, code: number | null) {
 
   if (code === 0) {
     task.status = 'completed'
-    task.lastMessage = task.lastMessage || 'Clip splitter concluido.'
+    task.lastMessage = task.lastMessage || 'Pre-Editor concluido.'
     emitDone(task, fallbackDurationSec)
     return
   }
@@ -623,7 +628,7 @@ async function runNextTask() {
   if (!runnerScriptPath) {
     task.status = 'error'
     task.completedAt = Date.now()
-    task.lastMessage = 'Runner do clip splitter nao encontrado.'
+    task.lastMessage = 'Runner do Pre-Editor nao encontrado.'
     emitError(task, `${task.lastMessage} Verifique python/clip_splitter_service.py.`, 'error')
     refreshQueuedTasks()
     await runNextTask()
@@ -634,10 +639,10 @@ async function runNextTask() {
   task.status = 'preparing'
   task.startedAt = Date.now()
   task.lastMessage = task.useCpu
-    ? 'Inicializando Clip Splitter com Whisper em CPU...'
+    ? 'Inicializando Pre-Editor com Whisper em CPU...'
     : task.options.useAi
-      ? 'Inicializando Clip Splitter com IA de contexto...'
-      : 'Inicializando Clip Splitter em modo local...'
+      ? 'Inicializando Pre-Editor com IA de contexto...'
+      : 'Inicializando Pre-Editor em modo local...'
 
   emitProgress(task, {
     status: 'preparing',

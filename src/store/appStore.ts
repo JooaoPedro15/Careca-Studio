@@ -32,12 +32,13 @@ const defaultSubtitleSettings: SubtitleTaskOptions = {
   outputPath: null,
 }
 
-// Configuracao inicial do Clip Splitter com o modo padrao da ferramenta.
+// Configuracao inicial do Pre-Editor com o modo padrao da ferramenta.
 const defaultClipSplitterSettings: ClipSplitterOptions = {
   useAi: false,
   mode: 'silence',
   preEditMode: 'balanced',
   writeDebugJson: false,
+  analysisAudioTrack: '0',
   targetDurationSec: 35,
   minClipDurationSec: 20,
   maxClipDurationSec: 50,

@@ -15,8 +15,8 @@ const pageMeta: Record<ToolId, { title: string; description: string }> = {
     description: 'Central de transcricao com fila, presets de legenda e integracao com o pipeline Python local.',
   },
   'clip-splitter': {
-    title: 'Clip Splitter',
-    description: 'Mesa de corte para quebrar videos longos em clips curtos com regras de tempo e saida.',
+    title: 'Pre-Editor',
+    description: 'Pre-edicao automatica do bruto: comprime pausas, preserva a ordem e mantem faixas separadas.',
   },
   'media-kit': {
     title: 'Media Kit',

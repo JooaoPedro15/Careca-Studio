@@ -5,7 +5,7 @@ export type ClipSplitterPreEditMode = 'conservative' | 'balanced' | 'aggressive'
 // Rotulos de feedback manual usados para memoria local dos clipes.
 export type ClipFeedbackLabel = 'weak' | 'good' | 'viral'
 
-// Estados possiveis de um job do clip splitter.
+// Estados possiveis de um job do Pre-Editor.
 export type ClipSplitterTaskStatus =
   | 'queued'
   | 'preparing'
@@ -20,6 +20,7 @@ export interface ClipSplitterOptions {
   mode: ClipSplitterMode
   preEditMode: ClipSplitterPreEditMode
   writeDebugJson: boolean
+  analysisAudioTrack: string
   targetDurationSec: number
   minClipDurationSec: number
   maxClipDurationSec: number
@@ -86,7 +87,7 @@ export interface ClipSplitterErrorEvent extends ClipSplitterTaskEventBase {
 }
 
 export interface ClipSplitterTask {
-  // Estrutura usada pela store para renderizar cada job do Clip Splitter.
+  // Estrutura usada pela store para renderizar cada job do Pre-Editor.
   id: string
   sourcePath: string
   sourceName: string
