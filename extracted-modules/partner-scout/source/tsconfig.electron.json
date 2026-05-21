@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
+    "outDir": "dist-electron",
+    "rootDir": ".",
+    "resolveJsonModule": true
+  },
+  "include": ["electron", "src/modules/partner-scout-v2"],
+  "exclude": ["**/*.test.ts", "src/modules/partner-scout-v2/**/*.tsx", "src/modules/partner-scout-v2/components", "src/modules/partner-scout-v2/index.tsx"]
+}
