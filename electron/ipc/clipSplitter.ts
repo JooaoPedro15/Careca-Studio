@@ -163,7 +163,7 @@ const defaultOptions: ClipSplitterTaskOptions = {
   mode: 'silence',
   preEditMode: 'balanced',
   writeDebugJson: false,
-  analysisAudioTrack: '0',
+  analysisAudioTrack: '1',
   targetDurationSec: 35,
   minClipDurationSec: 20,
   maxClipDurationSec: 50,

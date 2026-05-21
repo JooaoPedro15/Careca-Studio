@@ -1,9 +1,11 @@
 import unittest
 import importlib.util
 import json
+import sys
 import tempfile
 from types import SimpleNamespace
 from pathlib import Path
+from unittest.mock import patch
 
 
 def load_clip_splitter_service():
@@ -114,6 +116,34 @@ class ClipSplitterPreEditDecisionTest(unittest.TestCase):
         self.assertEqual(selected["audio_index"], 1)
         self.assertEqual(selected["stream_index"], 2)
         self.assertIn("mic", selected["reason"].lower())
+
+    def test_default_analysis_track_prefers_second_audio_stream_for_voice(self):
+        streams = [
+            {"index": 1, "audio_index": 0, "title": "Game"},
+            {"index": 2, "audio_index": 1, "title": "Voice"},
+        ]
+
+        selected = self.service.resolve_analysis_audio_track(None, streams)
+
+        self.assertEqual(selected["audio_index"], 1)
+        self.assertEqual(selected["stream_index"], 2)
+        self.assertIn("default voice", selected["reason"].lower())
+
+    def test_parse_args_defaults_to_second_ffmpeg_audio_track(self):
+        with patch.object(sys, "argv", ["clip_splitter_service.py", "input.mp4"]):
+            args = self.service.parse_args()
+
+        self.assertEqual(args.analysis_audio_track, "1")
+
+    def test_default_analysis_track_falls_back_when_second_audio_stream_is_missing(self):
+        streams = [
+            {"index": 1, "audio_index": 0, "title": "Mixed"},
+        ]
+
+        selected = self.service.resolve_analysis_audio_track(None, streams)
+
+        self.assertEqual(selected["audio_index"], 0)
+        self.assertIn("fallback", selected["reason"].lower())
 
     def test_unknown_mic_track_falls_back_to_first_audio_stream(self):
         streams = [

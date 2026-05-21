@@ -246,11 +246,11 @@ export function ClipSplitterPage({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 sm:col-span-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Faixa de analise</span>
+                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Faixa de voz (0:a:N)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
-                  onChange={(event) => patchSettings({ analysisAudioTrack: event.target.value.trim() || '0' })}
-                  placeholder="0 ou mic"
+                  onChange={(event) => patchSettings({ analysisAudioTrack: event.target.value.trim() || '1' })}
+                  placeholder="1 ou mic"
                   value={settings.analysisAudioTrack}
                 />
               </label>

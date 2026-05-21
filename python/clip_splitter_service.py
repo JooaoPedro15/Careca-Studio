@@ -101,6 +101,7 @@ PREEDIT_MODE_SETTINGS = {
     },
 }
 DEFAULT_PREEDIT_MODE = "balanced"
+DEFAULT_ANALYSIS_AUDIO_TRACK = "1"
 HARD_SILENCE_DURATION = 1.20
 KEEP_PADDING_BEFORE = 0.08
 KEEP_PADDING_AFTER = 0.12
@@ -1123,7 +1124,7 @@ def probe_audio_streams(module: Any, video_path: str) -> list[dict]:
     return streams
 
 
-# Resolve a faixa de audio usada para detectar silencio; se nao encontrar mic, cai na primeira.
+# Resolve a faixa de audio usada para detectar silencio; por padrao usa 0:a:1 como faixa de voz.
 def resolve_analysis_audio_track(selection: str | int | None, audio_streams: list[dict]) -> dict:
     if not audio_streams:
         raise RuntimeError("Nenhuma faixa de audio encontrada para analise.")
@@ -1135,16 +1136,27 @@ def resolve_analysis_audio_track(selection: str | int | None, audio_streams: lis
             "reason": reason,
         }
 
-    normalized_selection = str(selection if selection is not None else "0").strip().lower()
+    raw_selection = str(selection if selection is not None else DEFAULT_ANALYSIS_AUDIO_TRACK).strip()
+    normalized_selection = (raw_selection or DEFAULT_ANALYSIS_AUDIO_TRACK).lower()
+    is_default_voice_track = normalized_selection == DEFAULT_ANALYSIS_AUDIO_TRACK
+
     if normalized_selection.isdigit():
         requested_index = int(normalized_selection)
         for stream in audio_streams:
             if int(stream.get("audio_index", -1)) == requested_index:
+                if is_default_voice_track:
+                    return with_reason(stream, f"using default voice audio track {requested_index} (FFmpeg 0:a:{requested_index})")
                 return with_reason(stream, f"using configured audio track {requested_index}")
 
+        fallback_reason = (
+            f"fallback to first audio track because default voice track {requested_index} "
+            f"(FFmpeg 0:a:{requested_index}) was not found"
+            if is_default_voice_track
+            else f"fallback to first audio track because configured track {requested_index} was not found"
+        )
         return with_reason(
             audio_streams[0],
-            f"fallback to first audio track because configured track {requested_index} was not found",
+            fallback_reason,
         )
 
     name_tokens = ["mic", "microphone", "microfone", "voz", "voice"]
@@ -1310,7 +1322,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-duration", type=float, default=50.0)
     parser.add_argument("--silence-threshold-db", type=float, default=-35.0)
     parser.add_argument("--silence-min-duration", type=float, default=0.45)
-    parser.add_argument("--analysis-audio-track", default="0")
+    parser.add_argument("--analysis-audio-track", "--voice-track-index", default=DEFAULT_ANALYSIS_AUDIO_TRACK)
     parser.add_argument("--feedback-file", default=None)
     parser.add_argument("--write-debug-json", action="store_true")
     parser.add_argument("--cpu", action="store_true")

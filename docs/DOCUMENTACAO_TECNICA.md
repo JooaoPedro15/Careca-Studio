@@ -375,6 +375,7 @@ O que faz:
 - tenta usar IA de contexto
 - detecta fallback local
 - organiza partes exportaveis
+- usa `0:a:1` como faixa de voz/microfone padrao para detectar silencio
 - emite progresso padronizado
 
 Como faz:
@@ -383,6 +384,8 @@ Como faz:
 - chama funcoes dele
 - captura saida do processo
 - traduz essa saida para eventos do app
+- se a segunda faixa de audio nao existir, avisa no log e cai para `0:a:0`
+- aplica os cortes planejados no video completo e preserva as faixas de audio separadas
 
 Por que existe:
 
