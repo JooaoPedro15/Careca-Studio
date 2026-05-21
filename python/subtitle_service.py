@@ -26,6 +26,32 @@ DEFAULT_MODEL = "large-v3"
 DEFAULT_LANGUAGE = "pt"
 DEFAULT_BEAM_SIZE = 5
 DEFAULT_MAX_LINE_WIDTH = 42
+DEFAULT_TARGET_WORDS = 3
+DEFAULT_MIN_SUBTITLE_WORDS = 1
+DEFAULT_MAX_SUBTITLE_WORDS = 5
+DEFAULT_MAX_FAST_SUBTITLE_WORDS = 6
+DEFAULT_MIN_SUBTITLE_DURATION = 0.45
+DEFAULT_MAX_SUBTITLE_DURATION = 2.0
+DEFAULT_IDEAL_SUBTITLE_DURATION_MIN = 0.8
+DEFAULT_IDEAL_SUBTITLE_DURATION_MAX = 1.4
+WEAK_TRAILING_WORDS = {
+    "que",
+    "de",
+    "do",
+    "da",
+    "pra",
+    "para",
+    "com",
+    "em",
+    "e",
+    "o",
+    "a",
+    "um",
+    "uma",
+    "se",
+    "me",
+    "te",
+}
 
 
 # Emite eventos JSON no stdout para o Electron acompanhar o progresso em tempo real.
@@ -64,6 +90,105 @@ def clean_text(text: str, no_accents: bool = False, no_punctuation: bool = False
     if no_accents:
         text = remove_accents(text)
     return re.sub(r"\s+", " ", text).strip()
+
+
+# Normaliza palavras apenas para decidir cortes de legenda, sem alterar o texto exibido.
+def normalize_boundary_word(word: str) -> str:
+    return remove_accents(remove_punctuation(word)).strip().lower()
+
+
+# Mede a duracao coberta por um grupo de palavras com timestamps do Whisper.
+def get_words_duration(words: list[Any]) -> float:
+    if not words:
+        return 0.0
+
+    start = getattr(words[0], "start", None)
+    end = getattr(words[-1], "end", None)
+
+    if not isinstance(start, (int, float)) or not isinstance(end, (int, float)):
+        return 0.0
+
+    return max(0.0, float(end) - float(start))
+
+
+# Segmenta timestamps por palavra buscando blocos naturais em torno de 3 palavras.
+def segment_words_naturally(
+    words: list[Any],
+    target_words: int = DEFAULT_TARGET_WORDS,
+    min_words: int = DEFAULT_MIN_SUBTITLE_WORDS,
+    max_words: int = DEFAULT_MAX_SUBTITLE_WORDS,
+    max_words_fast_speech: int = DEFAULT_MAX_FAST_SUBTITLE_WORDS,
+    min_duration: float = DEFAULT_MIN_SUBTITLE_DURATION,
+    max_duration: float = DEFAULT_MAX_SUBTITLE_DURATION,
+    ideal_duration_min: float = DEFAULT_IDEAL_SUBTITLE_DURATION_MIN,
+    ideal_duration_max: float = DEFAULT_IDEAL_SUBTITLE_DURATION_MAX,
+) -> list[list[Any]]:
+    word_items = list(words)
+    if not word_items:
+        return []
+
+    min_words = max(1, min_words)
+    target_words = max(min_words, target_words or DEFAULT_TARGET_WORDS)
+    max_words = max(target_words, max_words)
+    max_words_fast_speech = max(max_words, max_words_fast_speech)
+
+    segments: list[list[Any]] = []
+    index = 0
+
+    while index < len(word_items):
+        remaining = len(word_items) - index
+        normal_limit = min(max_words, remaining)
+        fast_limit = min(max_words_fast_speech, remaining)
+        fast_duration = get_words_duration(word_items[index : index + fast_limit])
+        limit = fast_limit if fast_limit > normal_limit and 0 < fast_duration <= max_duration else normal_limit
+        best_count = min(target_words, limit)
+        best_score = float("inf")
+
+        for count in range(min(min_words, remaining), limit + 1):
+            candidate = word_items[index : index + count]
+            duration = get_words_duration(candidate)
+            remaining_after = remaining - count
+            trailing_word = normalize_boundary_word(str(getattr(candidate[-1], "word", "")))
+            score = abs(count - target_words) * 10
+
+            if trailing_word in WEAK_TRAILING_WORDS and remaining_after > 0:
+                score += 80
+
+            if remaining_after == 1 and count < limit:
+                score += 45
+
+            if duration > 0:
+                if duration < min_duration:
+                    score += (min_duration - duration) * 30
+                elif ideal_duration_min <= duration <= ideal_duration_max:
+                    score -= 6
+                elif duration < ideal_duration_min:
+                    score += (ideal_duration_min - duration) * 8
+                elif duration <= max_duration:
+                    score += (duration - ideal_duration_max) * 8
+                else:
+                    score += 40 + (duration - max_duration) * 60
+
+            if count > max_words:
+                score += (count - max_words) * 6
+
+            if score < best_score:
+                best_score = score
+                best_count = count
+
+        while best_count < limit:
+            trailing_word = normalize_boundary_word(str(getattr(word_items[index + best_count - 1], "word", "")))
+            if trailing_word not in WEAK_TRAILING_WORDS:
+                break
+            best_count += 1
+
+        if remaining - best_count == 1 and best_count < limit:
+            best_count += 1
+
+        segments.append(word_items[index : index + best_count])
+        index += best_count
+
+    return segments
 
 
 # Quebra a fala em linhas menores para melhorar a leitura do subtitulo.
@@ -200,32 +325,12 @@ def transcribe_video(
 
     for segment in segments:
         if max_words > 0 and word_timestamps and segment.words:
-            # Neste modo, usa timestamps por palavra para fatiar legendas por quantidade maxima de palavras.
-            words_buffer = []
-            for word_info in segment.words:
-                words_buffer.append(word_info)
-                if len(words_buffer) >= max_words:
-                    segment_count += 1
-                    sub_start = format_timestamp(words_buffer[0].start)
-                    sub_end = format_timestamp(words_buffer[-1].end)
-                    text = " ".join(word.word.strip() for word in words_buffer)
-                    text = clean_text(text, no_accents, no_punctuation)
-                    if uppercase:
-                        text = text.upper()
-                    elif lowercase:
-                        text = text.lower()
-
-                    srt_content.append(f"{segment_count}")
-                    srt_content.append(f"{sub_start} --> {sub_end}")
-                    srt_content.append(text)
-                    srt_content.append("")
-                    words_buffer = []
-
-            if words_buffer:
+            # Neste modo, usa timestamps por palavra para fatiar legendas por ritmo e limites naturais.
+            for words_group in segment_words_naturally(segment.words, target_words=max_words):
                 segment_count += 1
-                sub_start = format_timestamp(words_buffer[0].start)
-                sub_end = format_timestamp(words_buffer[-1].end)
-                text = " ".join(word.word.strip() for word in words_buffer)
+                sub_start = format_timestamp(words_group[0].start)
+                sub_end = format_timestamp(words_group[-1].end)
+                text = " ".join(word.word.strip() for word in words_group)
                 text = clean_text(text, no_accents, no_punctuation)
                 if uppercase:
                     text = text.upper()

@@ -289,13 +289,13 @@ function resolveNvidiaBinPaths(root: string) {
   return candidates.filter((candidate) => existsSync(candidate))
 }
 
-// Localiza o script Python que sera usado como runner da transcricao.
+// Localiza o script Python que sera usado como runner da transcricao, preferindo o runner local corrigido do Studio.
 // Retorna o caminho encontrado e a lista de candidatos verificados para uso em mensagens de erro.
-function resolveRunnerScriptPath(forgeRoot: string): { scriptPath: string | null; checked: string[] } {
+export function resolveRunnerScriptPath(forgeRoot: string): { scriptPath: string | null; checked: string[] } {
   const candidates = [
-    path.join(forgeRoot, 'subtitle_forge.py'),
     path.resolve(process.cwd(), 'python', 'subtitle_service.py'),
     path.resolve(process.cwd(), '..', 'careca-studio', 'python', 'subtitle_service.py'),
+    path.join(forgeRoot, 'subtitle_forge.py'),
   ]
 
   const scriptPath = candidates.find((candidate) => existsSync(candidate)) ?? null
