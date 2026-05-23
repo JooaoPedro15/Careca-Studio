@@ -9,7 +9,7 @@ O Careca Studio e um app desktop em `Electron + React + TypeScript` focado em fe
 Ferramentas ativas:
 
 - `SubtitleForge`: transcricao e geracao de `.srt`.
-- `Clip Splitter`: pre-edicao e exportacao de cortes curtos.
+- `Pre-Editor`: pre-edicao de videos brutos com compressao de pausas e exportacao de uma versao longa revisavel.
 
 Modulos comerciais, prospeccao e recomendacao nao fazem parte do shell ativo. Referencias historicas ficam em `docs/legacy_modules.md`.
 
@@ -96,7 +96,7 @@ careca-studio/
 6. A store atualiza a lista de tarefas.
 7. A UI mostra progresso, erro ou o arquivo `.srt` final.
 
-## Fluxo Clip Splitter
+## Fluxo Pre-Editor
 
 1. O usuario escolhe o video e as opcoes de corte.
 2. `useClipSplitter` chama `window.careca.clipSplitter.process`.
