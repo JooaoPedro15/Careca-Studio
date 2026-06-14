@@ -21,7 +21,7 @@ describe('resolveRunnerScriptPath', () => {
     }
   })
 
-  it('prefere o runner local do Careca Studio quando tambem existe script externo', () => {
+  it('prefere o runner local do ClipForge quando tambem existe script externo', () => {
     tempRoot = mkdtempSync(path.join(tmpdir(), 'subtitle-forge-'))
     writeFileSync(path.join(tempRoot, 'subtitle_forge.py'), '# external runner')
 

@@ -302,7 +302,7 @@ function refreshQueuedTasks() {
 // Descobre onde esta o projeto externo Clip-Splitter e seu ambiente Python.
 function resolveClipSplitterRoot() {
   const candidates = [
-    process.env.CARECA_CLIP_SPLITTER_PATH,
+    process.env.CLIPFORGE_CLIP_SPLITTER_PATH,
     path.resolve(process.cwd(), '../Clip-Splitter'),
     'D:\\Projetos\\Clip-Splitter',
   ].filter((value): value is string => Boolean(value))
@@ -354,7 +354,7 @@ function resolveNvidiaBinPaths(root: string) {
 function resolveRunnerScriptPath() {
   const candidates = [
     path.resolve(process.cwd(), 'python', 'clip_splitter_service.py'),
-    path.resolve(process.cwd(), '..', 'careca-studio', 'python', 'clip_splitter_service.py'),
+    path.resolve(process.cwd(), '..', 'clip-forge', 'python', 'clip_splitter_service.py'),
   ]
 
   return candidates.find((candidate) => existsSync(candidate)) ?? null
@@ -616,7 +616,7 @@ async function runNextTask() {
     task.lastMessage = 'Projeto Clip-Splitter nao encontrado.'
     emitError(
       task,
-      'Projeto Clip-Splitter nao encontrado. Configure em D:\\Projetos\\Clip-Splitter ou use CARECA_CLIP_SPLITTER_PATH.',
+      'Projeto Clip-Splitter nao encontrado. Configure em D:\\Projetos\\Clip-Splitter ou use CLIPFORGE_CLIP_SPLITTER_PATH.',
       'error',
     )
     refreshQueuedTasks()
@@ -661,7 +661,7 @@ async function runNextTask() {
     cwd: clipSplitterRoot,
     env: {
       ...process.env,
-      CARECA_CLIP_SPLITTER_PATH: clipSplitterRoot,
+      CLIPFORGE_CLIP_SPLITTER_PATH: clipSplitterRoot,
       PATH: [...nvidiaBinPaths, process.env.PATH ?? ''].filter(Boolean).join(path.delimiter),
       PYTHONIOENCODING: 'utf-8',
       PYTHONUNBUFFERED: '1',

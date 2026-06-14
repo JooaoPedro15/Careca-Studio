@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="resources/icon.png" alt="Careca Studio" width="96" height="96" />
+  <img src="resources/icon.png" alt="ClipForge" width="96" height="96" />
 
-  <h1>Careca Studio</h1>
+  <h1>ClipForge</h1>
 
   <p><strong>Aplicativo desktop de edicao para creators, focado em acelerar cortes e legendas.</strong></p>
 
@@ -17,9 +17,9 @@
 
 ## Sobre
 
-O **Careca Studio** e um app desktop feito com Electron, React e TypeScript para centralizar ferramentas locais de edicao usadas no workflow de criadores.
+O **ClipForge** e um app desktop feito com Electron, React e TypeScript para centralizar ferramentas locais de edicao usadas no workflow de criadores.
 
-O escopo atual e simples: preparar material bruto com rapidez, gerar legendas e apoiar futuras ferramentas de edicao. Modulos comerciais e de inteligencia de parcerias foram separados do Studio.
+O escopo atual e simples: preparar material bruto com rapidez, gerar legendas e apoiar futuras ferramentas de edicao. Modulos comerciais e de inteligencia de parcerias foram separados do ClipForge.
 
 ## Funcionalidades
 
@@ -64,9 +64,9 @@ cp .env.example .env
 
 Variaveis opcionais:
 
-- `CARECA_SUBTITLE_FORGE_PATH`: caminho do ambiente Python usado pelo SubtitleForge.
-- `CARECA_CLIP_SPLITTER_PATH`: caminho do projeto externo usado pelo Pre-Editor.
-- `CARECA_CS_TEMP`: pasta temporaria curta usada pelo Pre-Editor (ex.: `D:\cs_tmp`). Evita [WinError 206] quando o input/output esta em caminho profundo. Se nao definido, o app tenta `<drive>:\cs_tmp` e cai para a pasta do video como fallback.
+- `CLIPFORGE_SUBTITLE_FORGE_PATH`: caminho do ambiente Python usado pelo SubtitleForge.
+- `CLIPFORGE_CLIP_SPLITTER_PATH`: caminho do projeto externo usado pelo Pre-Editor.
+- `CLIPFORGE_TEMP`: pasta temporaria curta usada pelo Pre-Editor (ex.: `D:\cs_tmp`). Evita [WinError 206] quando o input/output esta em caminho profundo. Se nao definido, o app tenta `<drive>:\cs_tmp` e cai para a pasta do video como fallback.
 - `GEMINI_API_KEY`: opcional para recursos de IA do Pre-Editor externo, quando habilitados.
 
 ## Instalacao
@@ -97,7 +97,7 @@ Esse comando inicia o Vite, compila o processo principal do Electron em modo wat
 ## Estrutura
 
 ```text
-careca-studio/
+clip-forge/
 ├─ electron/             # Processo principal, preload e handlers IPC
 │  ├─ ipc/               # Handlers IPC (clipSplitter, subtitle)
 │  └─ clipFeedbackStore.ts

@@ -1,10 +1,10 @@
-# Careca Studio - Documentacao Tecnica
+# ClipForge - Documentacao Tecnica
 
-Este documento descreve o estado atual do Careca Studio apos a limpeza de escopo.
+Este documento descreve o estado atual do ClipForge apos a limpeza de escopo.
 
 ## Visao geral
 
-O Careca Studio e um app desktop em `Electron + React + TypeScript` focado em ferramentas de edicao para creators.
+O ClipForge e um app desktop em `Electron + React + TypeScript` focado em ferramentas de edicao para creators.
 
 Ferramentas ativas:
 
@@ -56,7 +56,7 @@ Responsabilidades:
 ## Estrutura principal
 
 ```text
-careca-studio/
+clip-forge/
 |-- electron/
 |   |-- ipc/
 |   |   |-- clipSplitter.ts
@@ -89,7 +89,7 @@ careca-studio/
 ## Fluxo SubtitleForge
 
 1. O usuario escolhe ou arrasta um arquivo.
-2. `useSubtitleForge` chama `window.careca.subtitle.process`.
+2. `useSubtitleForge` chama `window.clipforge.subtitle.process`.
 3. `electron/ipc/subtitle.ts` inicia o worker Python.
 4. `python/subtitle_service.py` transcreve e emite progresso.
 5. O Electron repassa eventos para o renderer.
@@ -99,7 +99,7 @@ careca-studio/
 ## Fluxo Pre-Editor
 
 1. O usuario escolhe o video e as opcoes de corte.
-2. `useClipSplitter` chama `window.careca.clipSplitter.process`.
+2. `useClipSplitter` chama `window.clipforge.clipSplitter.process`.
 3. `electron/ipc/clipSplitter.ts` inicia o worker Python.
 4. `python/clip_splitter_service.py` adapta o pipeline de corte.
 5. O Electron repassa progresso e resultado.
@@ -107,7 +107,7 @@ careca-studio/
 
 ## API exposta pelo preload
 
-`window.careca` expoe apenas namespaces necessarios ao escopo atual:
+`window.clipforge` expoe apenas namespaces necessarios ao escopo atual:
 
 - `window`: minimizar, maximizar e fechar;
 - `dialog`: selecionar arquivos e diretorios;

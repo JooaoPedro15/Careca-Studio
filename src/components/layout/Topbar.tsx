@@ -1,6 +1,6 @@
 import { Minus, Square, X } from 'lucide-react'
 
-import { hasCarecaDesktopBridge } from '@/lib/utils'
+import { hasClipForgeDesktopBridge } from '@/lib/utils'
 
 interface TopbarProps {
   title: string
@@ -9,7 +9,7 @@ interface TopbarProps {
 
 export function Topbar({ title, description }: TopbarProps) {
   // Descobre se os controles da janela podem chamar o preload do Electron.
-  const hasDesktopBridge = hasCarecaDesktopBridge()
+  const hasDesktopBridge = hasClipForgeDesktopBridge()
 
   return (
     <header className="app-drag flex items-start justify-between gap-6 rounded-2xl border border-white/8 bg-dark/82 px-6 py-5 shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
@@ -31,7 +31,7 @@ export function Topbar({ title, description }: TopbarProps) {
           aria-label="Minimizar"
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/8 bg-white/4 text-text-secondary transition hover:bg-white/10 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!hasDesktopBridge}
-          onClick={() => void window.careca?.window?.minimize()}
+          onClick={() => void window.clipforge?.window?.minimize()}
           type="button"
         >
           <Minus className="h-4 w-4" />
@@ -40,7 +40,7 @@ export function Topbar({ title, description }: TopbarProps) {
           aria-label="Maximizar"
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/8 bg-white/4 text-text-secondary transition hover:bg-white/10 hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!hasDesktopBridge}
-          onClick={() => void window.careca?.window?.maximize()}
+          onClick={() => void window.clipforge?.window?.maximize()}
           type="button"
         >
           <Square className="h-4 w-4" />
@@ -49,7 +49,7 @@ export function Topbar({ title, description }: TopbarProps) {
           aria-label="Fechar"
           className="flex h-10 w-10 items-center justify-center rounded-xl border border-status-red/20 bg-status-red/10 text-status-red transition hover:bg-status-red/18 disabled:cursor-not-allowed disabled:opacity-40"
           disabled={!hasDesktopBridge}
-          onClick={() => void window.careca?.window?.close()}
+          onClick={() => void window.clipforge?.window?.close()}
           type="button"
         >
           <X className="h-4 w-4" />

@@ -23,7 +23,7 @@ export function DropZone({ onPickFiles, onDropPaths }: DropZoneProps) {
     }
 
     const paths = Array.from(files)
-      .map((file) => window.careca?.dialog?.getPathForFile(file) || (file as DragFile).path)
+      .map((file) => window.clipforge?.dialog?.getPathForFile(file) || (file as DragFile).path)
       .filter((path): path is string => Boolean(path))
 
     if (paths.length > 0) {

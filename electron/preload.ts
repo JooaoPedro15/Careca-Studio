@@ -79,6 +79,6 @@ const api = {
 } as const
 
 // Injeta a API no objeto window do renderer.
-contextBridge.exposeInMainWorld('careca', api)
+contextBridge.exposeInMainWorld('clipforge', api)
 
-export type CarecaAPI = typeof api
+export type ClipForgeAPI = typeof api

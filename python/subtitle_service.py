@@ -406,7 +406,7 @@ def transcribe_video(
 
 # Define a interface CLI usada pelo processo principal do Electron.
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Careca Studio Subtitle service")
+    parser = argparse.ArgumentParser(description="ClipForge Subtitle service")
     parser.add_argument("input", help="Caminho do video ou audio")
     parser.add_argument("-o", "--output", default=None)
     parser.add_argument("-m", "--model", default=DEFAULT_MODEL)

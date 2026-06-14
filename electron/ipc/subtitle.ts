@@ -241,7 +241,7 @@ function refreshQueuedTasks() {
 // Resolve onde esta o projeto subtitle-forge que contem ambiente Python e dependencias.
 function resolveSubtitleForgeRoot() {
   const candidates = [
-    process.env.CARECA_SUBTITLE_FORGE_PATH,
+    process.env.CLIPFORGE_SUBTITLE_FORGE_PATH,
     path.resolve(process.cwd(), '../subtitle-forge'),
     'D:\\Projetos\\subtitle-forge',
   ].filter((value): value is string => Boolean(value))
@@ -294,7 +294,7 @@ function resolveNvidiaBinPaths(root: string) {
 export function resolveRunnerScriptPath(forgeRoot: string): { scriptPath: string | null; checked: string[] } {
   const candidates = [
     path.resolve(process.cwd(), 'python', 'subtitle_service.py'),
-    path.resolve(process.cwd(), '..', 'careca-studio', 'python', 'subtitle_service.py'),
+    path.resolve(process.cwd(), '..', 'clip-forge', 'python', 'subtitle_service.py'),
     path.join(forgeRoot, 'subtitle_forge.py'),
   ]
 
@@ -543,7 +543,7 @@ async function runNextTask() {
     task.lastMessage = 'Projeto subtitle-forge nao encontrado.'
     emitError(
       task,
-      'Projeto subtitle-forge nao encontrado. Configure em D:\\Projetos\\subtitle-forge ou use CARECA_SUBTITLE_FORGE_PATH.',
+      'Projeto subtitle-forge nao encontrado. Configure em D:\\Projetos\\subtitle-forge ou use CLIPFORGE_SUBTITLE_FORGE_PATH.',
       'error',
     )
     refreshQueuedTasks()

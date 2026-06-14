@@ -1,8 +1,8 @@
 {
-  "name": "careca-studio",
+  "name": "clip-forge",
   "version": "0.1.0",
   "private": true,
-  "description": "Ferramenta desktop interna para automatizar e centralizar o workflow de produção de conteúdo do canal Roberto Careca.",
+  "description": "Ferramenta desktop interna ClipForge para automatizar e centralizar workflows de edicao de conteudo.",
   "main": "dist-electron/electron/main.js",
   "type": "module",
   "scripts": {

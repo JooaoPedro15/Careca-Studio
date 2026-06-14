@@ -9,7 +9,7 @@ interface SidebarProps {
   onSelect: (tool: ToolId) => void
 }
 
-function CarecaIcon({ className }: { className?: string }) {
+function ClipForgeIcon({ className }: { className?: string }) {
   return (
     <svg
       aria-hidden="true"
@@ -22,8 +22,11 @@ function CarecaIcon({ className }: { className?: string }) {
       viewBox="0 0 24 24"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M7.5 9.5 Q12 6.5 16.5 9.5" />
+      <rect height="10.5" rx="2" width="13" x="4.5" y="7.5" />
+      <path d="M4.5 11h13" />
+      <path d="M7 7.5 9.25 11M11 7.5 13.25 11M15 7.5 17.25 11" />
+      <path d="m10.5 13.25 3 1.75-3 1.75Z" fill="currentColor" stroke="none" />
+      <path d="M19.25 4.25v2M18.25 5.25h2M18.6 4.6l1.3 1.3M19.9 4.6l-1.3 1.3" />
     </svg>
   )
 }
@@ -56,12 +59,12 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
     <aside className="flex h-full flex-col rounded-2xl border border-white/8 bg-dark/92 p-4 shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
       <div className="app-drag flex items-center gap-3 rounded-xl border border-white/6 bg-white/3 px-4 py-5">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white">
-          <CarecaIcon className="h-6 w-6" />
+          <ClipForgeIcon className="h-6 w-6" />
         </div>
 
         <div>
-          <p className="text-sm uppercase tracking-[0.28em] text-text-muted">Careca</p>
-          <h1 className="text-xl font-semibold text-text-primary">Studio</h1>
+          <p className="text-sm uppercase tracking-[0.28em] text-text-muted">Clip</p>
+          <h1 className="text-xl font-semibold text-text-primary">Forge</h1>
         </div>
       </div>
 
@@ -107,7 +110,7 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
       <div className="mt-auto rounded-xl border border-white/8 bg-white/4 p-4">
         <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Roadmap</p>
         <p className="mt-2 text-sm text-text-secondary">
-          O Studio agora foca em ferramentas de edicao para acelerar cortes e legendas.
+          O ClipForge agora foca em ferramentas de edicao para acelerar cortes e legendas.
         </p>
       </div>
     </aside>

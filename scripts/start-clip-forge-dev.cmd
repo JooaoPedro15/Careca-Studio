@@ -1,3 +1,3 @@
 @echo off
-cd /d D:\Projetos\careca-studio
+cd /d "%~dp0\.."
 call npm.cmd run electron:dev

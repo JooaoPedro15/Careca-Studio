@@ -16,7 +16,7 @@ import type {
 declare global {
   interface Window {
     // API exposta pelo preload para o renderer conversar com o processo principal.
-    careca: {
+    clipforge: {
       window: {
         // Controles da janela frameless do Electron.
         minimize: () => Promise<void>

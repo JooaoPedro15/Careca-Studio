@@ -26,7 +26,7 @@ def safe_short_stem(stem: str, limit: int = MAX_OUTPUT_STEM_CHARS) -> str:
 
 
 def resolve_short_temp_dir(input_file: Path) -> Path:
-    env_dir = os.environ.get("CARECA_CS_TEMP")
+    env_dir = os.environ.get("CLIPFORGE_TEMP")
     candidates: list[Path] = []
     if env_dir:
         candidates.append(Path(env_dir))
@@ -57,7 +57,7 @@ def assert_safe_path_lengths(**paths: Path) -> None:
     details = "\n".join(f"  - {label}: {len(value)} chars -> {value}" for label, value in offenders.items())
     raise RuntimeError(
         "Caminho(s) muito longo(s) para Windows (limite seguro ~240 chars). "
-        "Use pasta curta como D:\\cs\\ no input/output ou defina CARECA_CS_TEMP para uma pasta curta.\n"
+        "Use pasta curta como D:\\cs\\ no input/output ou defina CLIPFORGE_TEMP para uma pasta curta.\n"
         f"{details}"
     )
 
@@ -96,7 +96,7 @@ def resolve_clip_splitter_root(explicit_root: str | None) -> Path:
 # Carrega dinamicamente o modulo principal do projeto Clip-Splitter.
 def load_clip_splitter_module(root: Path):
     module_path = root / "clip_splitter.py"
-    spec = importlib.util.spec_from_file_location("careca_clip_splitter_ext", module_path)
+    spec = importlib.util.spec_from_file_location("clipforge_clip_splitter_ext", module_path)
     if not spec or not spec.loader:
         raise RuntimeError("Nao foi possivel carregar clip_splitter.py")
 
@@ -1378,7 +1378,7 @@ def configure_whisper_runtime(module: Any, force_cpu: bool) -> tuple[str, str]:
 
 # Interface CLI usada pelo processo principal do Electron para iniciar o runner.
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Careca Studio Pre-Editor service")
+    parser = argparse.ArgumentParser(description="ClipForge Pre-Editor service")
     parser.add_argument("input", help="Caminho do video")
     parser.add_argument("-o", "--output", default=None)
     parser.add_argument("--project-root", default=None)

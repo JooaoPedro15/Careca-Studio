@@ -29,7 +29,7 @@ function getSettingsSnapshot(): Partial<SubtitleTaskOptions> {
 
 export function useSubtitleForge() {
   // A API do preload e opcional para permitir que a UI ainda renderize fora do Electron.
-  const carecaApi = typeof window !== 'undefined' ? window.careca : undefined
+  const clipForgeApi = typeof window !== 'undefined' ? window.clipforge : undefined
 
   // Cada handler traduz eventos do backend em atualizacoes da store global.
   const handleProgress = useEffectEvent((data: SubtitleProgressEvent) => {
@@ -46,21 +46,21 @@ export function useSubtitleForge() {
 
   useEffect(() => {
     // Registra os listeners uma unica vez enquanto a pagina estiver montada.
-    if (!carecaApi?.subtitle) {
-      console.error('[careca] preload API indisponivel no renderer')
+    if (!clipForgeApi?.subtitle) {
+      console.error('[clipforge] preload API indisponivel no renderer')
       return
     }
 
-    const offProgress = carecaApi.subtitle.onProgress((data) => handleProgress(data))
-    const offDone = carecaApi.subtitle.onDone((data) => handleDone(data))
-    const offError = carecaApi.subtitle.onError((data) => handleError(data))
+    const offProgress = clipForgeApi.subtitle.onProgress((data) => handleProgress(data))
+    const offDone = clipForgeApi.subtitle.onDone((data) => handleDone(data))
+    const offError = clipForgeApi.subtitle.onError((data) => handleError(data))
 
     return () => {
       offProgress()
       offDone()
       offError()
     }
-  }, [carecaApi, handleDone, handleError, handleProgress])
+  }, [clipForgeApi, handleDone, handleError, handleProgress])
 
   // Converte arquivos vindos do navegador/drag and drop em caminhos absolutos.
   function resolvePathsFromFiles(files: FileList | null): string[] {
@@ -69,7 +69,7 @@ export function useSubtitleForge() {
     }
 
     return Array.from(files)
-      .map((file) => carecaApi?.dialog?.getPathForFile(file))
+      .map((file) => clipForgeApi?.dialog?.getPathForFile(file))
       .filter((path): path is string => Boolean(path))
   }
 
@@ -83,11 +83,11 @@ export function useSubtitleForge() {
       }
     }
 
-    if (!carecaApi?.subtitle) {
-      console.error('[careca] subtitle API indisponivel para enfileirar arquivos')
+    if (!clipForgeApi?.subtitle) {
+      console.error('[clipforge] subtitle API indisponivel para enfileirar arquivos')
       return {
         ok: false,
-        message: 'A API desktop do Careca Studio nao esta disponivel. Abra com npm.cmd run electron:dev.',
+        message: 'A API desktop do ClipForge nao esta disponivel. Abra com npm.cmd run electron:dev.',
       }
     }
 
@@ -95,7 +95,7 @@ export function useSubtitleForge() {
 
     try {
       for (const filePath of sanitizedPaths) {
-        const taskId = await carecaApi.subtitle.process(filePath, settings)
+        const taskId = await clipForgeApi.subtitle.process(filePath, settings)
 
         startTransition(() => {
           useAppStore.getState().upsertSubtitleProgress({
@@ -118,7 +118,7 @@ export function useSubtitleForge() {
         message: null,
       }
     } catch (error) {
-      console.error('[careca] falha ao enfileirar arquivo', error)
+      console.error('[clipforge] falha ao enfileirar arquivo', error)
       return {
         ok: false,
         message: 'Nao foi possivel adicionar o arquivo a fila. Veja se o Electron e o backend estao ativos.',
@@ -151,15 +151,15 @@ export function useSubtitleForge() {
     queueFileSelection,
     pickFiles: async (): Promise<QueueFilesResult> => {
       // Abre o seletor nativo do Electron e envia os arquivos escolhidos para a fila.
-      if (!carecaApi?.dialog) {
-        console.error('[careca] dialog API indisponivel para abrir arquivos')
+      if (!clipForgeApi?.dialog) {
+        console.error('[clipforge] dialog API indisponivel para abrir arquivos')
         return {
           ok: false,
           message: 'O seletor de arquivos do Electron nao esta disponivel. Abra com npm.cmd run electron:dev.',
         }
       }
 
-      const filePaths = await carecaApi.dialog.openFiles(mediaFilters)
+      const filePaths = await clipForgeApi.dialog.openFiles(mediaFilters)
       if (filePaths.length === 0) {
         return {
           ok: false,
@@ -170,7 +170,7 @@ export function useSubtitleForge() {
       return queuePaths(filePaths)
     },
     cancelTask: async (taskId: string) => {
-      await carecaApi?.subtitle?.cancel(taskId)
+      await clipForgeApi?.subtitle?.cancel(taskId)
     },
     openOutput: async (outputPath: string | null) => {
       // Revela o arquivo final no explorador apenas quando ja existe um caminho de saida.
@@ -178,7 +178,7 @@ export function useSubtitleForge() {
         return
       }
 
-      await carecaApi?.shell?.showItemInFolder(outputPath)
+      await clipForgeApi?.shell?.showItemInFolder(outputPath)
     },
     retryTask: async (filePath: string) => {
       // Reprocessa o mesmo arquivo reaproveitando as configuracoes atuais da store.

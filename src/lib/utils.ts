@@ -4,8 +4,8 @@ export function cn(...values: Array<string | false | null | undefined>): string 
 }
 
 // Detecta se a UI esta rodando dentro do shell Electron com preload exposto.
-export function hasCarecaDesktopBridge(): boolean {
-  return typeof window !== 'undefined' && typeof window.careca !== 'undefined'
+export function hasClipForgeDesktopBridge(): boolean {
+  return typeof window !== 'undefined' && typeof window.clipforge !== 'undefined'
 }
 
 // Formata duracoes curtas e longas para cards e listas da interface.

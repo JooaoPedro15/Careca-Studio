@@ -31,7 +31,7 @@ function getSettingsSnapshot(): Partial<ClipSplitterOptions> {
 
 export function useClipSplitter() {
   // A API pode nao existir no navegador puro, por isso o acesso e defensivo.
-  const carecaApi = typeof window !== 'undefined' ? window.careca : undefined
+  const clipForgeApi = typeof window !== 'undefined' ? window.clipforge : undefined
 
   // Sincroniza os eventos do processo Python/Electron com a store global do app.
   const handleProgress = useEffectEvent((data: ClipSplitterProgressEvent) => {
@@ -48,21 +48,21 @@ export function useClipSplitter() {
 
   useEffect(() => {
     // Assina progresso, conclusao e erro enquanto o hook estiver ativo.
-    if (!carecaApi?.clipSplitter) {
-      console.error('[careca] Pre-Editor API indisponivel no renderer')
+    if (!clipForgeApi?.clipSplitter) {
+      console.error('[clipforge] Pre-Editor API indisponivel no renderer')
       return
     }
 
-    const offProgress = carecaApi.clipSplitter.onProgress((data) => handleProgress(data))
-    const offDone = carecaApi.clipSplitter.onDone((data) => handleDone(data))
-    const offError = carecaApi.clipSplitter.onError((data) => handleError(data))
+    const offProgress = clipForgeApi.clipSplitter.onProgress((data) => handleProgress(data))
+    const offDone = clipForgeApi.clipSplitter.onDone((data) => handleDone(data))
+    const offError = clipForgeApi.clipSplitter.onError((data) => handleError(data))
 
     return () => {
       offProgress()
       offDone()
       offError()
     }
-  }, [carecaApi, handleDone, handleError, handleProgress])
+  }, [clipForgeApi, handleDone, handleError, handleProgress])
 
   // Mantem o caminho do video fonte compartilhado entre os componentes da pagina.
   function setSourcePath(sourcePath: string | null) {
@@ -79,7 +79,7 @@ export function useClipSplitter() {
       }
     }
 
-    if (!carecaApi?.clipSplitter) {
+    if (!clipForgeApi?.clipSplitter) {
       return {
         ok: false,
         message: 'A API desktop do Pre-Editor nao esta disponivel. Abra com npm.cmd run electron:dev.',
@@ -89,7 +89,7 @@ export function useClipSplitter() {
     const settings = getSettingsSnapshot()
 
     try {
-      const taskId = await carecaApi.clipSplitter.process(resolvedSourcePath, settings)
+      const taskId = await clipForgeApi.clipSplitter.process(resolvedSourcePath, settings)
 
       startTransition(() => {
         useAppStore.getState().upsertClipSplitterProgress({
@@ -111,7 +111,7 @@ export function useClipSplitter() {
         message: null,
       }
     } catch (error) {
-      console.error('[careca] falha ao iniciar Pre-Editor', error)
+      console.error('[clipforge] falha ao iniciar Pre-Editor', error)
       return {
         ok: false,
         message: 'Nao foi possivel iniciar a pre-edicao agora. Verifique se o Electron esta ativo.',
@@ -122,14 +122,14 @@ export function useClipSplitter() {
   return {
     pickSourceFile: async (): Promise<ClipSplitterActionResult> => {
       // Abre o seletor nativo e guarda o primeiro video escolhido como fonte atual.
-      if (!carecaApi?.dialog) {
+      if (!clipForgeApi?.dialog) {
         return {
           ok: false,
           message: 'O seletor de arquivos do Electron nao esta disponivel. Abra com npm.cmd run electron:dev.',
         }
       }
 
-      const selectedPaths = await carecaApi.dialog.openFiles(videoFilters)
+      const selectedPaths = await clipForgeApi.dialog.openFiles(videoFilters)
       const sourcePath = selectedPaths[0] ?? null
       if (!sourcePath) {
         return {
@@ -146,14 +146,14 @@ export function useClipSplitter() {
     },
     pickOutputDir: async (): Promise<ClipSplitterActionResult> => {
       // Permite sobrescrever a pasta de saida padrao antes de exportar a pre-edicao.
-      if (!carecaApi?.dialog?.openDirectory) {
+      if (!clipForgeApi?.dialog?.openDirectory) {
         return {
           ok: false,
           message: 'A selecao de pasta nao esta disponivel nesta execucao.',
         }
       }
 
-      const outputDir = await carecaApi.dialog.openDirectory()
+      const outputDir = await clipForgeApi.dialog.openDirectory()
       if (!outputDir) {
         return {
           ok: false,
@@ -170,7 +170,7 @@ export function useClipSplitter() {
     setSourcePath,
     startSplit,
     cancelTask: async (taskId: string) => {
-      await carecaApi?.clipSplitter?.cancel(taskId)
+      await clipForgeApi?.clipSplitter?.cancel(taskId)
     },
     openOutput: async (outputDir: string | null) => {
       // Abre a pasta ou arquivo relacionado ao corte exportado.
@@ -178,7 +178,7 @@ export function useClipSplitter() {
         return
       }
 
-      await carecaApi?.shell?.showItemInFolder(outputDir)
+      await clipForgeApi?.shell?.showItemInFolder(outputDir)
     },
     retryTask: async (sourcePath: string) => {
       // Reusa o mesmo video como fonte e inicia um novo job.
@@ -187,7 +187,7 @@ export function useClipSplitter() {
     },
     saveClipFeedback: async (taskId: string, clip: ClipSplitterClip, label: ClipFeedbackLabel | null) => {
       // Persiste o feedback manual para alimentar cortes futuros com memoria local.
-      if (!carecaApi?.clipSplitter?.saveFeedback) {
+      if (!clipForgeApi?.clipSplitter?.saveFeedback) {
         return {
           ok: false,
           message: 'A API de feedback do Pre-Editor nao esta disponivel nesta execucao.',
@@ -195,7 +195,7 @@ export function useClipSplitter() {
       }
 
       try {
-        const saved = await carecaApi.clipSplitter.saveFeedback(clip, label)
+        const saved = await clipForgeApi.clipSplitter.saveFeedback(clip, label)
         if (!saved) {
           return {
             ok: false,
@@ -210,7 +210,7 @@ export function useClipSplitter() {
           message: null,
         }
       } catch (error) {
-        console.error('[careca] falha ao salvar feedback do clip', error)
+        console.error('[clipforge] falha ao salvar feedback do clip', error)
         return {
           ok: false,
           message: 'Falha ao salvar feedback local do clipe.',
