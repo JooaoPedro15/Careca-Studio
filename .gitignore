@@ -58,6 +58,9 @@ CLAUDE.md
 # Internal planning docs
 docs/superpowers/
 
+# Git worktrees isolados
+.worktrees/
+
 # Python
 __pycache__/
 **/__pycache__/
