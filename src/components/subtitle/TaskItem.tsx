@@ -68,7 +68,12 @@ export function TaskItem({ task, onCancel, onOpenOutput, onRetry }: TaskItemProp
             </Button>
           ) : null}
           {Object.entries(task.translatedOutputs).map(([lang, path]) => (
-            <Button key={lang} leadingIcon={<FolderSearch className="h-4 w-4" />} onClick={() => onOpenOutput(path)} variant="ghost">
+            <Button
+              key={lang}
+              leadingIcon={<FolderSearch className="h-4 w-4" />}
+              onClick={() => onOpenOutput(path)}
+              variant="ghost"
+            >
               Abrir .{lang}.srt
             </Button>
           ))}
