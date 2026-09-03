@@ -21,6 +21,7 @@ interface SubtitleTaskOptions {
   noAccents: boolean
   noPunctuation: boolean
   useCpu: boolean
+  translateTo: string[]
   outputPath?: string | null
 }
 
@@ -43,6 +44,8 @@ interface SubtitleEventPayload {
   completedAt?: number
   durationSec?: number
   detectedLanguage?: string
+  translatedOutputs?: Record<string, string>
+  translationErrors?: Record<string, string>
 }
 
 interface SubtitleErrorPayload extends SubtitleEventPayload {
@@ -88,7 +91,29 @@ interface RunnerErrorEvent {
   detectedLanguage?: string
 }
 
-type RunnerEvent = RunnerStatusEvent | RunnerDoneEvent | RunnerErrorEvent
+interface RunnerTranslationDoneEvent {
+  event: 'translation-done'
+  status: 'completed'
+  stage: string
+  message: string
+  targetLang: string
+  outputPath?: string
+  error?: string
+}
+
+interface RunnerTranslationErrorEvent {
+  event: 'translation-error'
+  status: 'error'
+  stage: string
+  message: string
+  targetLang: string
+  outputPath?: string
+  error?: string
+}
+
+type RunnerTranslationEvent = RunnerTranslationDoneEvent | RunnerTranslationErrorEvent
+
+type RunnerEvent = RunnerStatusEvent | RunnerDoneEvent | RunnerErrorEvent | RunnerTranslationEvent
 
 interface SubtitleTaskRecord {
   id: string
@@ -110,6 +135,8 @@ interface SubtitleTaskRecord {
   lastError: string | null
   terminalEvent: RunnerDoneEvent | RunnerErrorEvent | null
   hasRetriedWithCpu: boolean
+  translatedOutputs: Record<string, string>
+  translationErrors: Record<string, string>
 }
 
 // Estruturas em memoria que controlam a fila sequencial e a tarefa ativa.
@@ -129,6 +156,7 @@ const defaultOptions: SubtitleTaskOptions = {
   noAccents: false,
   noPunctuation: false,
   useCpu: false,
+  translateTo: [],
   outputPath: null,
 }
 
@@ -141,6 +169,9 @@ function normalizeOptions(options: Partial<SubtitleTaskOptions> | undefined): Su
     maxWidth: Math.max(10, options?.maxWidth ?? defaultOptions.maxWidth),
     maxWords: Math.max(0, options?.maxWords ?? defaultOptions.maxWords),
     language: (options?.language ?? defaultOptions.language).trim() || defaultOptions.language,
+    translateTo: Array.from(
+      new Set((options?.translateTo ?? defaultOptions.translateTo).map((lang) => lang.trim()).filter(Boolean)),
+    ),
     outputPath: options?.outputPath?.trim() || null,
   }
 }
@@ -175,6 +206,8 @@ function toPayload(task: SubtitleTaskRecord, overrides: Partial<SubtitleEventPay
     startedAt: task.startedAt ?? undefined,
     completedAt: task.completedAt ?? undefined,
     detectedLanguage: task.detectedLanguage ?? undefined,
+    translatedOutputs: task.translatedOutputs,
+    translationErrors: task.translationErrors,
     ...overrides,
   }
 }
@@ -304,7 +337,7 @@ export function resolveRunnerScriptPath(forgeRoot: string): { scriptPath: string
 }
 
 // Traduz as opcoes da tarefa para argumentos de linha de comando do processo Python.
-function buildProcessArgs(serviceScriptPath: string, task: SubtitleTaskRecord) {
+export function buildProcessArgs(serviceScriptPath: string, task: SubtitleTaskRecord) {
   const args = [
     serviceScriptPath,
     task.filePath,
@@ -342,6 +375,10 @@ function buildProcessArgs(serviceScriptPath: string, task: SubtitleTaskRecord) {
     args.push('--cpu')
   }
 
+  if (task.options.translateTo.length > 0) {
+    args.push('--translate-to', task.options.translateTo.join(','))
+  }
+
   if (task.options.outputPath) {
     args.push('--output', task.options.outputPath)
   }
@@ -365,13 +402,17 @@ function flushBuffer(buffer: string, onLine: (line: string) => void) {
 }
 
 // Identifica eventos JSON emitidos pelo runner; logs livres seguem outro caminho.
-function parseRunnerEvent(line: string): RunnerEvent | null {
+export function parseRunnerEvent(line: string): RunnerEvent | null {
   try {
     const parsed = JSON.parse(line) as Partial<RunnerEvent>
 
     if (
       parsed &&
-      (parsed.event === 'status' || parsed.event === 'done' || parsed.event === 'error') &&
+      (parsed.event === 'status' ||
+        parsed.event === 'done' ||
+        parsed.event === 'error' ||
+        parsed.event === 'translation-done' ||
+        parsed.event === 'translation-error') &&
       typeof parsed.status === 'string' &&
       typeof parsed.stage === 'string' &&
       typeof parsed.message === 'string'
@@ -426,6 +467,32 @@ function applyPlaintextRunnerLine(task: SubtitleTaskRecord, line: string) {
 // Aplica eventos estruturados do runner ao estado em memoria da tarefa.
 function applyRunnerEvent(task: SubtitleTaskRecord, event: RunnerEvent) {
   task.lastMessage = event.message
+
+  if (event.event === 'translation-done') {
+    task.translatedOutputs = { ...task.translatedOutputs, [event.targetLang]: event.outputPath ?? '' }
+    emitProgress(task, {
+      status: task.status,
+      stage: event.stage,
+      message: event.message,
+      progress: null,
+      translatedOutputs: task.translatedOutputs,
+      translationErrors: task.translationErrors,
+    })
+    return
+  }
+
+  if (event.event === 'translation-error') {
+    task.translationErrors = { ...task.translationErrors, [event.targetLang]: event.error ?? event.message }
+    emitProgress(task, {
+      status: task.status,
+      stage: event.stage,
+      message: event.message,
+      progress: null,
+      translatedOutputs: task.translatedOutputs,
+      translationErrors: task.translationErrors,
+    })
+    return
+  }
 
   if (typeof event.processedSegments === 'number') {
     task.processedSegments = event.processedSegments
@@ -703,6 +770,8 @@ export function registerSubtitleHandlers() {
       lastError: null,
       terminalEvent: null,
       hasRetriedWithCpu: false,
+      translatedOutputs: {},
+      translationErrors: {},
     }
 
     tasks.set(taskId, task)

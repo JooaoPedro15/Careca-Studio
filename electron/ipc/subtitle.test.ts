@@ -9,7 +9,86 @@ vi.mock('electron', () => ({
   },
 }))
 
-import { resolveRunnerScriptPath } from './subtitle.js'
+import { buildProcessArgs, parseRunnerEvent, resolveRunnerScriptPath } from './subtitle.js'
+
+describe('buildProcessArgs', () => {
+  it('inclui --translate-to quando translateTo tem idiomas', () => {
+    const task = {
+      filePath: 'C:\\video.mp4',
+      options: {
+        model: 'large-v3',
+        language: 'pt',
+        beamSize: 5,
+        maxWidth: 42,
+        maxWords: 0,
+        uppercase: false,
+        lowercase: false,
+        noAccents: false,
+        noPunctuation: false,
+        useCpu: false,
+        translateTo: ['en', 'zh'],
+        outputPath: null,
+      },
+    } as Parameters<typeof buildProcessArgs>[1]
+
+    const args = buildProcessArgs('script.py', task)
+
+    expect(args).toContain('--translate-to')
+    expect(args[args.indexOf('--translate-to') + 1]).toBe('en,zh')
+  })
+
+  it('omite --translate-to quando lista vazia', () => {
+    const task = {
+      filePath: 'C:\\video.mp4',
+      options: {
+        model: 'large-v3',
+        language: 'pt',
+        beamSize: 5,
+        maxWidth: 42,
+        maxWords: 0,
+        uppercase: false,
+        lowercase: false,
+        noAccents: false,
+        noPunctuation: false,
+        useCpu: false,
+        translateTo: [],
+        outputPath: null,
+      },
+    } as Parameters<typeof buildProcessArgs>[1]
+
+    const args = buildProcessArgs('script.py', task)
+
+    expect(args).not.toContain('--translate-to')
+  })
+})
+
+describe('parseRunnerEvent', () => {
+  it('reconhece eventos translation-done e translation-error', () => {
+    const doneEvent = parseRunnerEvent(
+      JSON.stringify({
+        event: 'translation-done',
+        status: 'completed',
+        stage: 'translating',
+        message: 'ok',
+        targetLang: 'en',
+        outputPath: 'C:\\video.en.srt',
+      }),
+    )
+    const errorEvent = parseRunnerEvent(
+      JSON.stringify({
+        event: 'translation-error',
+        status: 'error',
+        stage: 'translating',
+        message: 'falhou',
+        targetLang: 'zh',
+        error: 'sem internet',
+      }),
+    )
+
+    expect(doneEvent?.event).toBe('translation-done')
+    expect(errorEvent?.event).toBe('translation-error')
+  })
+})
 
 describe('resolveRunnerScriptPath', () => {
   let tempRoot: string | null = null
