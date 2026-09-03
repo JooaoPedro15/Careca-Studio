@@ -25,6 +25,7 @@ export interface SubtitleTaskOptions {
   noAccents: boolean
   noPunctuation: boolean
   useCpu: boolean
+  translateTo: string[]
   outputPath?: string | null
 }
 
@@ -48,6 +49,8 @@ export interface SubtitleTaskEventBase {
   completedAt?: number
   durationSec?: number
   detectedLanguage?: string
+  translatedOutputs?: Record<string, string>
+  translationErrors?: Record<string, string>
 }
 
 // Evento intermediario de progresso emitido durante o processamento.
@@ -89,4 +92,6 @@ export interface SubtitleTask {
   completedAt: number | null
   durationSec: number | null
   error: string | null
+  translatedOutputs: Record<string, string>
+  translationErrors: Record<string, string>
 }

@@ -29,6 +29,7 @@ const defaultSubtitleSettings: SubtitleTaskOptions = {
   noAccents: false,
   noPunctuation: false,
   useCpu: false,
+  translateTo: [],
   outputPath: null,
 }
 
@@ -117,6 +118,8 @@ function upsertSubtitleTask(
     completedAt: event.completedAt ?? currentTask?.completedAt ?? null,
     durationSec: event.durationSec ?? currentTask?.durationSec ?? null,
     error: 'error' in event ? event.error : currentTask?.error ?? null,
+    translatedOutputs: { ...currentTask?.translatedOutputs, ...event.translatedOutputs },
+    translationErrors: { ...currentTask?.translationErrors, ...event.translationErrors },
   }
 
   if (currentIndex === -1) {
