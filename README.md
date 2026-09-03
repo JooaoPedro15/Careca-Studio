@@ -28,6 +28,10 @@ O escopo atual e simples: preparar material bruto com rapidez, gerar legendas e 
 | **SubtitleForge** | Estavel | Transcreve audio/video com Whisper e gera arquivos `.srt`. |
 | **Pre-Editor** | Em evolucao | Pre-edita videos brutos, comprime pausas e gera uma versao longa mais rapida de revisar. |
 
+### Traducao de legendas (SubtitleForge)
+
+O SubtitleForge tem duas opcoes opcionais para traduzir a legenda gerada, alem do `.srt` original: **"Traduzir p/ ingles"** e **"Traduzir p/ chines (simplificado)"**. Ao marcar uma ou ambas, o app gera arquivos adicionais (`arquivo.en.srt`, `arquivo.zh.srt`) ao lado do `.srt` original, usando o modelo NLLB para traducao. No primeiro uso, o app baixa o modelo NLLB (~600MB) do HuggingFace — e necessario ter internet nessa primeira vez; depois disso o modelo fica em cache local e as traducoes seguintes funcionam offline.
+
 ## Stack
 
 - **Desktop:** Electron

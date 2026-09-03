@@ -67,6 +67,11 @@ export function TaskItem({ task, onCancel, onOpenOutput, onRetry }: TaskItemProp
               Abrir saída
             </Button>
           ) : null}
+          {Object.entries(task.translatedOutputs).map(([lang, path]) => (
+            <Button key={lang} leadingIcon={<FolderSearch className="h-4 w-4" />} onClick={() => onOpenOutput(path)} variant="ghost">
+              Abrir .{lang}.srt
+            </Button>
+          ))}
           {(task.status === 'error' || task.status === 'cancelled') && (
             <Button
               leadingIcon={<RotateCcw className="h-4 w-4" />}
@@ -128,6 +133,12 @@ export function TaskItem({ task, onCancel, onOpenOutput, onRetry }: TaskItemProp
             {task.error}
           </span>
         ) : null}
+        {Object.entries(task.translationErrors).map(([lang, message]) => (
+          <span key={lang} className="inline-flex items-center gap-1 text-status-yellow">
+            <TriangleAlert className="h-3.5 w-3.5" />
+            Traducao {lang} falhou: {message}
+          </span>
+        ))}
         {isActive ? (
           <span className="inline-flex items-center gap-1 text-status-yellow">
             <LoaderCircle className="h-3.5 w-3.5 animate-spin" />

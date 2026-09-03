@@ -161,6 +161,32 @@ export function SubtitleForgePage({
                   onChange={(checked) => patchSettings({ useCpu: checked })}
                 />
               </div>
+              <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-text-secondary">
+                <span>Traduzir p/ inglês</span>
+                <Toggle
+                  checked={settings.translateTo.includes('en')}
+                  onChange={(checked) =>
+                    patchSettings({
+                      translateTo: checked
+                        ? [...settings.translateTo, 'en']
+                        : settings.translateTo.filter((lang) => lang !== 'en'),
+                    })
+                  }
+                />
+              </div>
+              <div className="flex items-center justify-between rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-text-secondary">
+                <span>Traduzir p/ chinês (simplificado)</span>
+                <Toggle
+                  checked={settings.translateTo.includes('zh')}
+                  onChange={(checked) =>
+                    patchSettings({
+                      translateTo: checked
+                        ? [...settings.translateTo, 'zh']
+                        : settings.translateTo.filter((lang) => lang !== 'zh'),
+                    })
+                  }
+                />
+              </div>
               <div className="space-y-2 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-text-secondary">
                 <span className="block text-xs uppercase tracking-[0.18em] text-text-muted">Máx. palavras</span>
                 <input
