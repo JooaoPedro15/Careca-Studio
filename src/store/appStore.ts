@@ -9,6 +9,7 @@ import type {
   ClipSplitterTask,
 } from '@/types/clipSplitter'
 import type {
+  HardsubEvent,
   SubtitleDoneEvent,
   SubtitleErrorEvent,
   SubtitleProgressEvent,
@@ -30,6 +31,7 @@ const defaultSubtitleSettings: SubtitleTaskOptions = {
   noPunctuation: false,
   useCpu: false,
   translateTo: [],
+  format: 'long',
   outputPath: null,
 }
 
@@ -80,6 +82,7 @@ interface AppState {
   upsertSubtitleProgress: (event: SubtitleProgressEvent) => void
   completeSubtitleTask: (event: SubtitleDoneEvent) => void
   failSubtitleTask: (event: SubtitleErrorEvent) => void
+  upsertHardsubJob: (event: HardsubEvent) => void
   patchClipSplitterSettings: (patch: Partial<ClipSplitterOptions>) => void
   setClipSplitterOutputDir: (outputDir: string | null) => void
   setClipSplitterSourcePath: (sourcePath: string | null) => void
@@ -120,6 +123,7 @@ function upsertSubtitleTask(
     error: 'error' in event ? event.error : currentTask?.error ?? null,
     translatedOutputs: { ...currentTask?.translatedOutputs, ...event.translatedOutputs },
     translationErrors: { ...currentTask?.translationErrors, ...event.translationErrors },
+    hardsubJobs: currentTask?.hardsubJobs ?? {},
   }
 
   if (currentIndex === -1) {
@@ -205,6 +209,29 @@ export const useAppStore = create<AppState>((set) => ({
   failSubtitleTask: (event) =>
     set((state) => ({
       subtitleTasks: upsertSubtitleTask(state.subtitleTasks, event),
+    })),
+  upsertHardsubJob: (event) =>
+    set((state) => ({
+      subtitleTasks: state.subtitleTasks.map((task) => {
+        if (task.id !== event.taskId) {
+          return task
+        }
+
+        return {
+          ...task,
+          hardsubJobs: {
+            ...task.hardsubJobs,
+            [event.mode]: {
+              status: event.status,
+              stage: event.stage,
+              message: event.message,
+              progress: event.progress,
+              outputPath: event.outputPath ?? task.hardsubJobs[event.mode]?.outputPath ?? null,
+              error: event.error ?? null,
+            },
+          },
+        }
+      }),
     })),
   patchClipSplitterSettings: (patch) =>
     set((state) => ({

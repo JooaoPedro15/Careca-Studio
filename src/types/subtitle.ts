@@ -13,6 +13,32 @@ export type SubtitleTaskStatus =
   | 'error'
   | 'cancelled'
 
+export type HardsubMode = 'zh' | 'zh-en' | 'zh-original'
+export type HardsubFormat = 'shorts' | 'long'
+export type HardsubJobStatus = 'queued' | 'preparing' | 'processing' | 'completed' | 'error' | 'cancelled'
+
+export interface HardsubJobState {
+  status: HardsubJobStatus
+  stage: string
+  message: string
+  progress: number | null
+  outputPath: string | null
+  error: string | null
+}
+
+export interface HardsubEvent {
+  taskId: string
+  jobId: string
+  mode: HardsubMode
+  format: HardsubFormat
+  status: HardsubJobStatus
+  stage: string
+  message: string
+  progress: number | null
+  outputPath?: string | null
+  error?: string
+}
+
 export interface SubtitleTaskOptions {
   // Preferencias enviadas do renderer para o processo Electron/Python.
   model: SubtitleModel
@@ -26,6 +52,7 @@ export interface SubtitleTaskOptions {
   noPunctuation: boolean
   useCpu: boolean
   translateTo: string[]
+  format: HardsubFormat
   outputPath?: string | null
 }
 
@@ -94,4 +121,5 @@ export interface SubtitleTask {
   error: string | null
   translatedOutputs: Record<string, string>
   translationErrors: Record<string, string>
+  hardsubJobs: Partial<Record<HardsubMode, HardsubJobState>>
 }

@@ -7,6 +7,9 @@ import type {
   ClipSplitterProgressEvent,
 } from './clipSplitter'
 import type {
+  HardsubEvent,
+  HardsubFormat,
+  HardsubMode,
   SubtitleDoneEvent,
   SubtitleErrorEvent,
   SubtitleProgressEvent,
@@ -41,6 +44,10 @@ declare global {
         onProgress: (cb: (data: SubtitleProgressEvent) => void) => () => void
         onDone: (cb: (data: SubtitleDoneEvent) => void) => () => void
         onError: (cb: (data: SubtitleErrorEvent) => void) => () => void
+        burn: (taskId: string, mode: HardsubMode, format: HardsubFormat) => Promise<string>
+        onBurnProgress: (cb: (data: HardsubEvent) => void) => () => void
+        onBurnDone: (cb: (data: HardsubEvent) => void) => () => void
+        onBurnError: (cb: (data: HardsubEvent) => void) => () => void
       }
       clipSplitter: {
         // Ponte entre o renderer e o pipeline de corte/exportacao.
