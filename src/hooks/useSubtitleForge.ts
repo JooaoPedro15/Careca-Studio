@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { getFileName } from '@/lib/utils'
 import { useAppStore } from '@/store/appStore'
 import type {
+  HardsubEvent,
+  HardsubMode,
   SubtitleDoneEvent,
   SubtitleErrorEvent,
   SubtitleProgressEvent,
@@ -44,6 +46,10 @@ export function useSubtitleForge() {
     useAppStore.getState().failSubtitleTask(data)
   })
 
+  const handleBurnEvent = useEffectEvent((data: HardsubEvent) => {
+    useAppStore.getState().upsertHardsubJob(data)
+  })
+
   useEffect(() => {
     // Registra os listeners uma unica vez enquanto a pagina estiver montada.
     if (!clipForgeApi?.subtitle) {
@@ -54,13 +60,19 @@ export function useSubtitleForge() {
     const offProgress = clipForgeApi.subtitle.onProgress((data) => handleProgress(data))
     const offDone = clipForgeApi.subtitle.onDone((data) => handleDone(data))
     const offError = clipForgeApi.subtitle.onError((data) => handleError(data))
+    const offBurnProgress = clipForgeApi.subtitle.onBurnProgress((data) => handleBurnEvent(data))
+    const offBurnDone = clipForgeApi.subtitle.onBurnDone((data) => handleBurnEvent(data))
+    const offBurnError = clipForgeApi.subtitle.onBurnError((data) => handleBurnEvent(data))
 
     return () => {
       offProgress()
       offDone()
       offError()
+      offBurnProgress()
+      offBurnDone()
+      offBurnError()
     }
-  }, [clipForgeApi, handleDone, handleError, handleProgress])
+  }, [clipForgeApi, handleBurnEvent, handleDone, handleError, handleProgress])
 
   // Converte arquivos vindos do navegador/drag and drop em caminhos absolutos.
   function resolvePathsFromFiles(files: FileList | null): string[] {
@@ -183,6 +195,10 @@ export function useSubtitleForge() {
     retryTask: async (filePath: string) => {
       // Reprocessa o mesmo arquivo reaproveitando as configuracoes atuais da store.
       await queuePaths([filePath])
+    },
+    burnSubtitles: async (taskId: string, mode: HardsubMode) => {
+      const format = useAppStore.getState().subtitleSettings.format
+      await clipForgeApi?.subtitle?.burn(taskId, mode, format)
     },
   }
 }
