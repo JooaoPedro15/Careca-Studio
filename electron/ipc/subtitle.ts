@@ -272,7 +272,7 @@ function refreshQueuedTasks() {
 }
 
 // Resolve onde esta o projeto subtitle-forge que contem ambiente Python e dependencias.
-function resolveSubtitleForgeRoot() {
+export function resolveSubtitleForgeRoot() {
   const candidates = [
     process.env.CLIPFORGE_SUBTITLE_FORGE_PATH,
     path.resolve(process.cwd(), '../subtitle-forge'),
@@ -291,7 +291,7 @@ function resolveSubtitleForgeRoot() {
 }
 
 // Prefere o Python do venv local, mas ainda permite fallback para python do sistema.
-function resolvePythonCommand(root: string) {
+export function resolvePythonCommand(root: string) {
   const localCandidates = [
     path.join(root, '.venv', 'Scripts', 'python.exe'),
     path.join(root, 'venv', 'Scripts', 'python.exe'),
@@ -307,7 +307,7 @@ function resolvePythonCommand(root: string) {
 }
 
 // Coleta caminhos de DLLs NVIDIA quando a execucao usa CUDA em ambiente virtual local.
-function resolveNvidiaBinPaths(root: string) {
+export function resolveNvidiaBinPaths(root: string) {
   const candidates = [
     path.join(root, '.venv', 'Lib', 'site-packages', 'nvidia', 'cublas', 'bin'),
     path.join(root, '.venv', 'Lib', 'site-packages', 'nvidia', 'cudnn', 'bin'),
@@ -334,6 +334,23 @@ export function resolveRunnerScriptPath(forgeRoot: string): { scriptPath: string
   const scriptPath = candidates.find((candidate) => existsSync(candidate)) ?? null
 
   return { scriptPath, checked: candidates }
+}
+
+// Expoe um snapshot somente-leitura de uma tarefa pra outros modulos IPC (ex.: subtitleBurn)
+// sem entregar o Map mutavel interno.
+export function getSubtitleTaskSnapshot(taskId: string) {
+  const task = tasks.get(taskId)
+  if (!task) {
+    return null
+  }
+
+  return {
+    filePath: task.filePath,
+    outputPath: task.outputPath,
+    language: task.options.language,
+    detectedLanguage: task.detectedLanguage,
+    status: task.status,
+  }
 }
 
 // Traduz as opcoes da tarefa para argumentos de linha de comando do processo Python.

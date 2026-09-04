@@ -46,6 +46,29 @@ const api = {
         ipcRenderer.removeListener('subtitle:error', listener)
       }
     },
+    burn: (taskId: string, mode: string, format: string) =>
+      ipcRenderer.invoke('subtitle:burn', taskId, mode, format),
+    onBurnProgress: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('subtitle:burn-progress', listener)
+      return () => {
+        ipcRenderer.removeListener('subtitle:burn-progress', listener)
+      }
+    },
+    onBurnDone: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('subtitle:burn-done', listener)
+      return () => {
+        ipcRenderer.removeListener('subtitle:burn-done', listener)
+      }
+    },
+    onBurnError: (cb: (data: unknown) => void) => {
+      const listener = (_event: unknown, data: unknown) => cb(data)
+      ipcRenderer.on('subtitle:burn-error', listener)
+      return () => {
+        ipcRenderer.removeListener('subtitle:burn-error', listener)
+      }
+    },
   },
   clipSplitter: {
     // Namespace dedicado ao workflow de corte e feedback de clipes.
