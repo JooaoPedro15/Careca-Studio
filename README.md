@@ -32,6 +32,12 @@ O escopo atual e simples: preparar material bruto com rapidez, gerar legendas e 
 
 O SubtitleForge tem duas opcoes opcionais para traduzir a legenda gerada, alem do `.srt` original: **"Traduzir p/ ingles"** e **"Traduzir p/ chines (simplificado)"**. Ao marcar uma ou ambas, o app gera arquivos adicionais (`arquivo.en.srt`, `arquivo.zh.srt`) ao lado do `.srt` original, usando o modelo NLLB para traducao. No primeiro uso, o app baixa o modelo NLLB (~600MB) do HuggingFace — e necessario ter internet nessa primeira vez; depois disso o modelo fica em cache local e as traducoes seguintes funcionam offline.
 
+### Queima de legenda no video (hardsub)
+
+Apos a transcricao de um video terminar, o SubtitleForge oferece 3 botoes pra gerar um arquivo de video final com a legenda queimada (hardsub): **"So chines"**, **"Chines + ingles"** e **"Chines + [idioma original]"** — as duas ultimas empilham 2 legendas no video (chines em cima), gerando a traducao que faltar automaticamente se ainda nao existir. O preset **"Formato"** (Shorts/Video longo) na configuracao ajusta o tamanho de fonte e a segmentacao padrao (`maxWords`) pro tipo de video. O arquivo final sai como `video.hardsub.<modo>.mp4` ao lado do original.
+
+Requisito: `ffmpeg`/`ffprobe` precisam estar instalados e acessiveis no PATH (ou em `C:\ffmpeg\bin`) — nao ha download automatico como o modelo Whisper/NLLB.
+
 ## Stack
 
 - **Desktop:** Electron

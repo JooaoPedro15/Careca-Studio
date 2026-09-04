@@ -2,16 +2,17 @@ import { ListChecks } from 'lucide-react'
 
 import { TaskItem } from '@/components/subtitle/TaskItem'
 import { Card } from '@/components/ui/Card'
-import type { SubtitleTask } from '@/types/subtitle'
+import type { HardsubMode, SubtitleTask } from '@/types/subtitle'
 
 interface TaskListProps {
   tasks: SubtitleTask[]
   onCancel: (taskId: string) => void
   onOpenOutput: (outputPath: string | null) => void
   onRetry: (filePath: string) => void
+  onBurn: (taskId: string, mode: HardsubMode) => void
 }
 
-export function TaskList({ tasks, onCancel, onOpenOutput, onRetry }: TaskListProps) {
+export function TaskList({ tasks, onCancel, onOpenOutput, onRetry, onBurn }: TaskListProps) {
   // Estado vazio exibido antes da primeira tarefa entrar na fila.
   if (tasks.length === 0) {
     return (
@@ -36,6 +37,7 @@ export function TaskList({ tasks, onCancel, onOpenOutput, onRetry }: TaskListPro
       {tasks.map((task) => (
         <TaskItem
           key={task.id}
+          onBurn={onBurn}
           onCancel={onCancel}
           onOpenOutput={onOpenOutput}
           onRetry={onRetry}

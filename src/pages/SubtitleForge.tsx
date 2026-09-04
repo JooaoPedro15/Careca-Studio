@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/Card'
 import { CustomSelect } from '@/components/ui/CustomSelect'
 import { Toggle } from '@/components/ui/Toggle'
 import { useAppStore } from '@/store/appStore'
+import type { HardsubMode } from '@/types/subtitle'
 
 interface SubtitleForgePageProps {
   onPickFiles: () => Promise<{ ok: boolean; message: string | null }>
@@ -16,6 +17,7 @@ interface SubtitleForgePageProps {
   onCancelTask: (taskId: string) => void
   onOpenOutput: (outputPath: string | null) => void
   onRetryTask: (filePath: string) => void
+  onBurn: (taskId: string, mode: HardsubMode) => void
 }
 
 export function SubtitleForgePage({
@@ -24,6 +26,7 @@ export function SubtitleForgePage({
   onCancelTask,
   onOpenOutput,
   onRetryTask,
+  onBurn,
 }: SubtitleForgePageProps) {
   // Busca as tarefas e configuracoes da transcricao direto da store global.
   const tasks = useAppStore((state) => state.subtitleTasks)
@@ -41,7 +44,13 @@ export function SubtitleForgePage({
           {/* Entrada principal para drag and drop ou selecao manual de arquivos. */}
           <DropZone onDropPaths={onDropPaths} onPickFiles={onPickFiles} />
           {/* Lista detalhada das tarefas ja enviadas para o backend Python. */}
-          <TaskList tasks={tasks} onCancel={onCancelTask} onOpenOutput={onOpenOutput} onRetry={onRetryTask} />
+          <TaskList
+            onBurn={onBurn}
+            onCancel={onCancelTask}
+            onOpenOutput={onOpenOutput}
+            onRetry={onRetryTask}
+            tasks={tasks}
+          />
         </div>
 
         <div className="space-y-6">

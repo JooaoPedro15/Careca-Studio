@@ -40,6 +40,7 @@ export default function App() {
   } else {
     content = (
       <SubtitleForgePage
+        onBurn={subtitleForge.burnSubtitles}
         onCancelTask={subtitleForge.cancelTask}
         onDropPaths={subtitleForge.queuePaths}
         onOpenOutput={subtitleForge.openOutput}

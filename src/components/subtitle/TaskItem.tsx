@@ -4,13 +4,31 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { formatDuration, formatTaskStatus, formatTimestamp } from '@/lib/utils'
-import type { SubtitleTask } from '@/types/subtitle'
+import type { HardsubMode, SubtitleTask } from '@/types/subtitle'
 
 interface TaskItemProps {
   task: SubtitleTask
   onCancel: (taskId: string) => void
   onOpenOutput: (outputPath: string | null) => void
   onRetry: (filePath: string) => void
+  onBurn: (taskId: string, mode: HardsubMode) => void
+}
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  pt: 'português',
+  en: 'inglês',
+  es: 'espanhol',
+  fr: 'francês',
+  de: 'alemão',
+  it: 'italiano',
+  ja: 'japonês',
+  ko: 'coreano',
+  ru: 'russo',
+  zh: 'chinês',
+}
+
+function labelForLanguage(code: string): string {
+  return LANGUAGE_LABELS[code] ?? code
 }
 
 // Define a cor do badge de status sem espalhar a regra no JSX.
@@ -31,7 +49,7 @@ function resolveTone(status: SubtitleTask['status']) {
   }
 }
 
-export function TaskItem({ task, onCancel, onOpenOutput, onRetry }: TaskItemProps) {
+export function TaskItem({ task, onCancel, onOpenOutput, onRetry, onBurn }: TaskItemProps) {
   // Agrupa os estados que ainda permitem acompanhar ou cancelar o processamento.
   const isActive = task.status === 'queued' || task.status === 'preparing' || task.status === 'processing'
 
@@ -105,6 +123,46 @@ export function TaskItem({ task, onCancel, onOpenOutput, onRetry }: TaskItemProp
           />
         </div>
       </div>
+
+      {task.status === 'completed' ? (
+        <div className="space-y-2 border-t border-white/8 pt-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Queimar legenda no vídeo</p>
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                { mode: 'zh' as const, label: 'Só chinês' },
+                { mode: 'zh-en' as const, label: 'Chinês + inglês' },
+                {
+                  mode: 'zh-original' as const,
+                  label: `Chinês + ${labelForLanguage(task.detectedLanguage ?? task.language)}`,
+                },
+              ]
+            ).map(({ mode, label }) => {
+              const job = task.hardsubJobs[mode]
+              const isRunning = Boolean(job && job.status !== 'completed' && job.status !== 'error' && job.status !== 'cancelled')
+
+              return (
+                <div key={mode} className="flex items-center gap-2">
+                  <Button onClick={() => onBurn(task.id, mode)} variant="ghost" disabled={isRunning}>
+                    {isRunning && job ? `${label} (${job.progress ?? 0}%)` : label}
+                  </Button>
+                  {job?.status === 'completed' && job.outputPath ? (
+                    <Button leadingIcon={<FolderSearch className="h-4 w-4" />} onClick={() => onOpenOutput(job.outputPath)} variant="ghost">
+                      Abrir vídeo
+                    </Button>
+                  ) : null}
+                  {job?.status === 'error' ? (
+                    <span className="inline-flex items-center gap-1 text-xs text-status-yellow">
+                      <TriangleAlert className="h-3.5 w-3.5" />
+                      {job.error}
+                    </span>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {/* Metadados tecnicos da tarefa exibidos em cards compactos. */}
       <div className="grid gap-3 text-sm text-text-secondary sm:grid-cols-2 xl:grid-cols-4">
