@@ -71,6 +71,24 @@ export function SubtitleForgePage({
                 />
               </div>
 
+              <div className="space-y-2">
+                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Formato</span>
+                <CustomSelect
+                  value={settings.format}
+                  onChange={(value) => {
+                    const format = value as typeof settings.format
+                    patchSettings({
+                      format,
+                      maxWords: format === 'shorts' ? 3 : 0,
+                    })
+                  }}
+                  options={[
+                    { value: 'shorts', label: 'Shorts (vertical)' },
+                    { value: 'long', label: 'Vídeo longo (horizontal)' },
+                  ]}
+                />
+              </div>
+
               <label className="space-y-2">
                 <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Idioma</span>
                 <input
