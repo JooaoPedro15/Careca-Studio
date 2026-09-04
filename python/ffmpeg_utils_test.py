@@ -114,7 +114,7 @@ class RunFfmpegWithProgressTest(unittest.TestCase):
         class FakeProcess:
             def __init__(self):
                 self.stdout = iter(fake_stdout_lines)
-                self.stderr = mock.Mock(read=mock.Mock(return_value=""))
+                self.stderr = iter([])
                 self.returncode = 0
 
             def wait(self):
@@ -133,7 +133,7 @@ class RunFfmpegWithProgressTest(unittest.TestCase):
         class FakeProcess:
             def __init__(self):
                 self.stdout = iter(["progress=end\n"])
-                self.stderr = mock.Mock(read=mock.Mock(return_value="erro simulado"))
+                self.stderr = iter(["erro simulado\n"])
                 self.returncode = 1
 
             def wait(self):

@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from shutil import which
@@ -147,6 +148,18 @@ def ensure_short_srt_path(srt_path: str) -> str:
     return str(short_path)
 
 
+def _drain_stderr(stderr: "subprocess.Popen[str].stderr", collected: list[str]) -> None:
+    # Le stderr continuamente numa thread separada. O ffmpeg escreve bastante log
+    # (banner do codec, resumo final do libx264) mesmo com -nostats — se ninguem
+    # ler esse pipe em paralelo, o buffer do SO enche e o processo trava esperando
+    # espaco pra escrever, enquanto o thread principal fica esperando progresso no
+    # stdout que nunca chega (deadlock classico de subprocess com PIPE duplo).
+    for line in stderr:
+        collected.append(line)
+        if len(collected) > 500:
+            collected.pop(0)
+
+
 def run_ffmpeg_with_progress(
     args: list[str],
     total_duration_sec: float,
@@ -160,6 +173,10 @@ def run_ffmpeg_with_progress(
         text=True,
         bufsize=1,
     )
+
+    stderr_lines: list[str] = []
+    stderr_thread = threading.Thread(target=_drain_stderr, args=(process.stderr, stderr_lines), daemon=True)
+    stderr_thread.start()
 
     last_percent = 0
     for line in process.stdout:
@@ -178,6 +195,8 @@ def run_ffmpeg_with_progress(
             on_progress(100)
 
     return_code = process.wait()
+    stderr_thread.join(timeout=5)
+
     if return_code != 0:
-        stderr_output = process.stderr.read() if process.stderr else ""
+        stderr_output = "".join(stderr_lines)
         raise RuntimeError(f"ffmpeg terminou com codigo {return_code}: {stderr_output.strip()[-2000:]}")
