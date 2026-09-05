@@ -15,9 +15,8 @@ export function Topbar({ title, description }: TopbarProps) {
     <header className="app-drag flex items-start justify-between gap-6 rounded-2xl border border-white/8 bg-dark/82 px-6 py-5 shadow-[0_4px_16px_rgba(0,0,0,0.3)]">
       {/* Bloco textual com contexto da ferramenta aberta. */}
       <div>
-        <p className="text-xs uppercase tracking-[0.3em] text-text-muted">Workspace</p>
-        <h2 className="mt-2 text-2xl font-semibold text-text-primary">{title}</h2>
-        <p className="mt-1 max-w-2xl text-sm text-text-secondary">{description}</p>
+        <h2 className="text-2xl font-semibold text-text-primary">{title}</h2>
+        <p className="mt-1.5 max-w-2xl text-sm leading-6 text-text-secondary">{description}</p>
         {!hasDesktopBridge ? (
           <p className="mt-3 text-sm text-amber-300">
             Controles da janela indisponiveis aqui. Abra o app com <code>npm.cmd run electron:dev</code>.

@@ -58,17 +58,17 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
   return (
     <aside className="flex h-full flex-col rounded-2xl border border-white/8 bg-dark/92 p-4 shadow-[0_28px_80px_rgba(0,0,0,0.45)]">
       <div className="app-drag flex items-center gap-3 rounded-xl border border-white/6 bg-white/3 px-4 py-5">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 text-white">
-          <ClipForgeIcon className="h-6 w-6" />
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-black">
+          <ClipForgeIcon className="h-5 w-5" />
         </div>
 
         <div>
-          <p className="text-sm uppercase tracking-[0.28em] text-text-muted">Clip</p>
-          <h1 className="text-xl font-semibold text-text-primary">Forge</h1>
+          <h1 className="text-lg font-semibold leading-tight text-text-primary">ClipForge</h1>
+          <p className="text-xs text-text-muted">Bancada de edição</p>
         </div>
       </div>
 
-      <div className="mt-6 space-y-2">
+      <div className="mt-6 space-y-1.5">
         {tools.map((tool) => {
           const Icon = tool.icon
           const isActive = tool.id === activeTool
@@ -78,7 +78,7 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
               key={tool.id}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'app-no-drag flex w-full items-center gap-4 rounded-xl border px-4 py-4 text-left transition duration-200',
+                'app-no-drag relative flex w-full items-center gap-4 rounded-xl border px-4 py-4 text-left transition duration-200',
                 isActive
                   ? 'border-white/20 bg-white/8 text-white shadow-none'
                   : 'border-transparent bg-transparent text-text-secondary hover:border-white/8 hover:bg-white/4 hover:text-text-primary',
@@ -86,6 +86,9 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
               onClick={() => onSelect(tool.id)}
               type="button"
             >
+              {isActive ? (
+                <span aria-hidden="true" className="absolute inset-y-3 left-0 w-[3px] rounded-full bg-white" />
+              ) : null}
               <div
                 className={cn(
                   'flex h-12 w-12 items-center justify-center rounded-2xl',
@@ -97,7 +100,9 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <p className="truncate font-medium">{tool.name}</p>
+                  <p className={cn('truncate font-medium', isActive ? 'text-white' : 'text-text-primary')}>
+                    {tool.name}
+                  </p>
                   <Badge tone={tool.badge === 'Live' ? 'green' : 'blue'}>{tool.badge}</Badge>
                 </div>
                 <p className="truncate text-sm text-text-secondary">{tool.description}</p>
@@ -108,9 +113,9 @@ export function Sidebar({ activeTool, onSelect }: SidebarProps) {
       </div>
 
       <div className="mt-auto rounded-xl border border-white/8 bg-white/4 p-4">
-        <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Roadmap</p>
-        <p className="mt-2 text-sm text-text-secondary">
-          O ClipForge agora foca em ferramentas de edicao para acelerar cortes e legendas.
+        <p className="text-sm font-medium text-text-primary">Roadmap</p>
+        <p className="mt-1.5 text-sm leading-6 text-text-secondary">
+          O ClipForge agora foca em ferramentas de edição para acelerar cortes e legendas.
         </p>
       </div>
     </aside>

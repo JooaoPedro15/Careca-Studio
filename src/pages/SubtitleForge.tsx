@@ -57,8 +57,8 @@ export function SubtitleForgePage({
           <Card className="space-y-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Preset atual</p>
-                <h3 className="mt-2 text-xl font-semibold text-text-primary">Configuração da transcrição</h3>
+                <h3 className="text-xl font-semibold text-text-primary">Configuração da transcrição</h3>
+                <p className="mt-1 text-sm text-text-secondary">Ajustes do modelo Whisper para este preset.</p>
               </div>
               <Badge tone={settings.useCpu ? 'yellow' : 'green'}>{settings.useCpu ? 'CPU' : 'GPU'}</Badge>
             </div>
@@ -66,7 +66,7 @@ export function SubtitleForgePage({
             <div className="grid gap-4 sm:grid-cols-2">
               {/* Parametros que controlam o modelo Whisper e o formato do texto final. */}
               <div className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Modelo</span>
+                <span className="text-sm font-medium text-text-secondary">Modelo</span>
                 <CustomSelect
                   value={settings.model}
                   onChange={(value) => patchSettings({ model: value as typeof settings.model })}
@@ -81,7 +81,7 @@ export function SubtitleForgePage({
               </div>
 
               <div className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Formato</span>
+                <span className="text-sm font-medium text-text-secondary">Formato</span>
                 <CustomSelect
                   value={settings.format}
                   onChange={(value) => {
@@ -99,7 +99,7 @@ export function SubtitleForgePage({
               </div>
 
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Idioma</span>
+                <span className="text-sm font-medium text-text-secondary">Idioma</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition placeholder:text-text-muted focus:border-white/30"
                   onChange={(event) => patchSettings({ language: event.target.value || 'pt' })}
@@ -109,7 +109,7 @@ export function SubtitleForgePage({
               </label>
 
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Beam size</span>
+                <span className="text-sm font-medium text-text-secondary">Beam size</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   min={1}
@@ -120,7 +120,7 @@ export function SubtitleForgePage({
               </label>
 
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Largura máx.</span>
+                <span className="text-sm font-medium text-text-secondary">Largura máx.</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   min={10}
@@ -131,7 +131,7 @@ export function SubtitleForgePage({
               </label>
 
               <label className="space-y-2 sm:col-span-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Saída customizada (.srt)</span>
+                <span className="text-sm font-medium text-text-secondary">Saída customizada (.srt)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 font-mono text-sm text-text-primary outline-none transition placeholder:text-text-muted focus:border-white/30"
                   onChange={(event) => setOutputPath(event.target.value.trim() || null)}
@@ -239,17 +239,17 @@ export function SubtitleForgePage({
               </div>
             </div>
 
-            <div className="space-y-3 text-sm leading-6 text-text-secondary">
-              {/* Cada bloco descreve uma regra operacional importante do pipeline. */}
-              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
+            <div className="divide-y divide-white/6 rounded-xl border border-white/8 bg-black/20">
+              {/* Cada linha descreve uma regra operacional importante do pipeline. */}
+              <div className="px-4 py-3.5 text-sm leading-6 text-text-secondary">
                 <p className="font-medium text-text-primary">1 arquivo por vez</p>
                 <p>Evita disputa de VRAM quando o modelo está em GPU.</p>
               </div>
-              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
+              <div className="px-4 py-3.5 text-sm leading-6 text-text-secondary">
                 <p className="font-medium text-text-primary">Output padrão inteligente</p>
                 <p>Sem caminho customizado, o `.srt` sai ao lado do arquivo original.</p>
               </div>
-              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
+              <div className="px-4 py-3.5 text-sm leading-6 text-text-secondary">
                 <p className="font-medium text-text-primary">Compatível com o projeto Python local</p>
                 <p>Procura `D:\Projetos\subtitle-forge` e ambientes virtuais comuns antes do fallback para `python`.</p>
               </div>

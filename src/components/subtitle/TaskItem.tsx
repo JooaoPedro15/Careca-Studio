@@ -126,7 +126,7 @@ export function TaskItem({ task, onCancel, onOpenOutput, onRetry, onBurn }: Task
 
       {task.status === 'completed' ? (
         <div className="space-y-2 border-t border-white/8 pt-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Queimar legenda no vídeo</p>
+          <p className="text-sm font-medium text-text-secondary">Queimar legenda no vídeo</p>
           <div className="flex flex-wrap gap-2">
             {(
               [

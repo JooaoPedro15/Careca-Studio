@@ -171,7 +171,7 @@ export function ClipSplitterTaskItem({ task, onCancel, onOpenOutput, onRetry, on
         <div className="space-y-3 rounded-2xl border border-white/8 bg-black/12 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Arquivo de pre-edicao</p>
+              <p className="text-sm font-medium text-text-secondary">Arquivo de pré-edição</p>
               <p className="mt-1 text-sm text-text-secondary">
                 Video unico em ordem original, pronto para revisao manual.
               </p>

@@ -127,12 +127,11 @@ export function ClipSplitterPage({
         {/* ════════ COLUNA ESQUERDA ════════ */}
         <div className="space-y-6">
           {/* ── Card de entrada: seleção de vídeo e ações principais ────────── */}
-          <Card className="space-y-5 overflow-hidden bg-gradient-to-br from-status-green/10 via-transparent to-transparent">
+          <Card className="space-y-5">
             {/* Cabeçalho do card com título, descrição e badge do modo ativo */}
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Entrada</p>
-                <h3 className="mt-2 text-2xl font-semibold text-text-primary">Video base para pre-edicao</h3>
+                <h3 className="text-2xl font-semibold text-text-primary">Vídeo base para pré-edição</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-7 text-text-secondary">
                   Escolha um video longo, ajuste a reducao de pausas e gere uma versao unica mais rapida de revisar.
                 </p>
@@ -152,7 +151,7 @@ export function ClipSplitterPage({
 
             {/* ── Box com o nome e caminho completo do arquivo selecionado ──── */}
             <div className="rounded-2xl border border-white/8 bg-black/16 p-5">
-              <p className="text-xs uppercase tracking-[0.2em] text-text-muted">Arquivo selecionado</p>
+              <p className="text-sm font-medium text-text-secondary">Arquivo selecionado</p>
               <p className="mt-3 text-lg font-medium text-text-primary">{sourceName}</p>
               <p className="mt-2 break-all font-mono text-xs text-text-muted">{sourcePath ?? 'Nenhum caminho carregado.'}</p>
             </div>
@@ -198,8 +197,8 @@ export function ClipSplitterPage({
           {/* ── Card de configuração de corte ──────────────────────────────── */}
           <Card className="space-y-5">
             <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-text-muted">Pre-edicao</p>
-              <h3 className="mt-2 text-xl font-semibold text-text-primary">Configuracao de pausas</h3>
+              <h3 className="text-xl font-semibold text-text-primary">Configuração de pausas</h3>
+              <p className="mt-1 text-sm text-text-secondary">Regras usadas na próxima pré-edição.</p>
             </div>
 
             {/* ── Toggle para ativar/desativar a IA de contexto (Whisper + Gemini) */}
@@ -212,7 +211,7 @@ export function ClipSplitterPage({
 
             {/* ── Seletor de modo: "Silêncio + alvo de duração" ou "Duração fixa" */}
             <div className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Modo</span>
+              <span className="text-sm font-medium text-text-secondary">Modo</span>
               <CustomSelect
                 value={settings.mode}
                 onChange={(value) => patchSettings({ mode: value as typeof settings.mode })}
@@ -227,7 +226,7 @@ export function ClipSplitterPage({
 
             {/* ── Campos numéricos de configuração (grid 2 colunas) ─────────── */}
             <div className="space-y-2">
-              <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Intensidade</span>
+              <span className="text-sm font-medium text-text-secondary">Intensidade</span>
               <CustomSelect
                 value={settings.preEditMode}
                 onChange={(value) => patchSettings({ preEditMode: value as typeof settings.preEditMode })}
@@ -246,7 +245,7 @@ export function ClipSplitterPage({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2 sm:col-span-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Faixa de voz (0:a:N)</span>
+                <span className="text-sm font-medium text-text-secondary">Faixa de voz (0:a:N)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   onChange={(event) => patchSettings({ analysisAudioTrack: event.target.value.trim() || '1' })}
@@ -256,7 +255,7 @@ export function ClipSplitterPage({
               </label>
               {/* Duração alvo por clip em segundos (o FFmpeg tenta cortar perto disso) */}
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Alvo legado (s)</span>
+                <span className="text-sm font-medium text-text-secondary">Alvo legado (s)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   max={settings.maxClipDurationSec}
@@ -269,7 +268,7 @@ export function ClipSplitterPage({
 
               {/* Duração mínima — clips menores que isso são descartados ou mesclados */}
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Min. legado (s)</span>
+                <span className="text-sm font-medium text-text-secondary">Min. legado (s)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   min={3}
@@ -282,7 +281,7 @@ export function ClipSplitterPage({
 
               {/* Duração máxima — clips maiores que isso são divididos novamente */}
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Max. legado (s)</span>
+                <span className="text-sm font-medium text-text-secondary">Max. legado (s)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   min={settings.minClipDurationSec + 1}
@@ -294,7 +293,7 @@ export function ClipSplitterPage({
 
               {/* Duração mínima de silêncio para ser considerado pausa (modo silêncio) */}
               <label className="space-y-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Silencio min. (s)</span>
+                <span className="text-sm font-medium text-text-secondary">Silencio min. (s)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   min={0.1}
@@ -307,7 +306,7 @@ export function ClipSplitterPage({
 
               {/* Threshold em dB abaixo do qual o áudio é considerado silêncio (ocupa 2 colunas) */}
               <label className="space-y-2 sm:col-span-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Threshold de silencio (dB)</span>
+                <span className="text-sm font-medium text-text-secondary">Threshold de silencio (dB)</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 text-text-primary outline-none transition focus:border-white/30"
                   max={-5}
@@ -320,7 +319,7 @@ export function ClipSplitterPage({
 
               {/* Campo de texto para pasta de saída customizada (opcional, ocupa 2 colunas) */}
               <label className="space-y-2 sm:col-span-2">
-                <span className="text-xs uppercase tracking-[0.2em] text-text-muted">Pasta de saida</span>
+                <span className="text-sm font-medium text-text-secondary">Pasta de saida</span>
                 <input
                   className="w-full rounded-xl border border-white/10 bg-black/16 px-4 py-3 font-mono text-sm text-text-primary outline-none transition placeholder:text-text-muted focus:border-white/30"
                   onChange={(event) => setOutputDir(event.target.value.trim() || null)}
@@ -357,24 +356,24 @@ export function ClipSplitterPage({
             </div>
 
             {/* ── Blocos explicativos de cada modo/funcionalidade ────────────── */}
-            <div className="space-y-3 text-sm leading-6 text-text-secondary">
+            <div className="divide-y divide-white/6 rounded-xl border border-white/8 bg-black/20">
               {/* Explica o modo fixo */}
-              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
+              <div className="px-4 py-3.5 text-sm leading-6 text-text-secondary">
                 <p className="font-medium text-text-primary">Modo fixo</p>
                 <p>Mantem o bruto em um arquivo unico, sem dividir automaticamente em partes curtas.</p>
               </div>
               {/* Explica o modo silêncio */}
-              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
+              <div className="px-4 py-3.5 text-sm leading-6 text-text-secondary">
                 <p className="font-medium text-text-primary">Modo silencio</p>
                 <p>Classifica pausas e comprime silencios sem quebrar a ordem original do video.</p>
               </div>
               {/* Explica o contexto transcrito */}
-              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
+              <div className="px-4 py-3.5 text-sm leading-6 text-text-secondary">
                 <p className="font-medium text-text-primary">Contexto transcrito</p>
                 <p>Usa a transcricao para evitar cortes secos depois de conectores como "que", "mas" e "pra".</p>
               </div>
               {/* Explica o comportamento padrão da pasta de saída */}
-              <div className="rounded-xl border border-white/8 bg-black/20 px-4 py-4">
+              <div className="px-4 py-3.5 text-sm leading-6 text-text-secondary">
                 <p className="font-medium text-text-primary">Saida padrao</p>
                 <p>Sem pasta customizada, o app cria uma pasta irma do arquivo com sufixo `_preedit`.</p>
               </div>
